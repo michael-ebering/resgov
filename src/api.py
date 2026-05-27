@@ -84,9 +84,9 @@ async def lifespan(app: FastAPI):
 # --- App ---
 
 app = FastAPI(
-    title="ResGov",
-    description="Resource Governance for AI Agents — LLM Proxy + Budget Control",
-    version="0.3.0",
+    title="ResGov (RGF)",
+    description="Resource Governance Framework (RGF) for Multi-Agent Environments — LLM Proxy + Budget Control + Crash Recovery",
+    version="0.4.0",
     lifespan=lifespan,
 )
 

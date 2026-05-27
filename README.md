@@ -4,7 +4,7 @@
 <img src="https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white" alt="FastAPI">
 <img src="https://img.shields.io/badge/SQLite-WAL_Mode-003B57?logo=sqlite&logoColor=white" alt="SQLite">
 <img src="https://img.shields.io/badge/Docker-✓-2496ED?logo=docker&logoColor=white" alt="Docker">
-<img src="https://img.shields.io/badge/Tests-19/19_passing-success" alt="Tests">
+<img src="https://img.shields.io/badge/Tests-44/44_passing-success" alt="Tests">
 <img src="https://img.shields.io/badge/License-BSL_1.1-orange" alt="License">
 <a href="https://github.com/michael-ebering/resgov/stargazers"><img src="https://img.shields.io/github/stars/michael-ebering/resgov?style=social" alt="Stars"></a>
 
@@ -15,7 +15,7 @@
 **The missing layer between your agents and your budget.**
 _STOP letting AI agents burn through your API keys in an uncontrolled manner._
 
-ResGov is the Resource Governance Framework (RGF) for Multi-Agent environments — a lightweight proxy layer between your agents and your API budget. It implements MCP and A2A to prevent cost explosion through real-time quota enforcement, per-agent budget tracking, and streaming cost governance.
+ResGov is the Resource Governance Framework (RGF) for Multi-Agent environments — a lightweight proxy layer between your agents and your API budget. It complements MCP and A2A to prevent cost explosion through real-time quota enforcement, per-agent budget tracking, and streaming cost governance.
 
 📡 [Live Demo](https://resgov.silentops.cloud) · [Quick Start](#-quick-start) · [Architecture](#-architecture) · [API](#-api-reference)
 
@@ -23,7 +23,7 @@ ResGov is the Resource Governance Framework (RGF) for Multi-Agent environments �
 
 ---
 
-## ☝️ Why ResGov Exists
+## ☝️ Why ResGov (RGF) Exists
 
 ### The Problem
 Your agents make thousands of API calls per day. But nobody knows:
@@ -35,7 +35,7 @@ Your agents make thousands of API calls per day. But nobody knows:
 ### The Landscape
 - **MCP** → Defines _how agents talk_ to tools
 - **A2A** → Defines _how agents delegate_ to each other
-- **ResGov** → Defines _how agents **share finite resources**_
+- **RGF (ResGov)** → Defines _how agents **share finite resources**_
 
 That last piece? Doesn't exist. Until now.
 
@@ -58,25 +58,22 @@ That last piece? Doesn't exist. Until now.
 | **Audit Trail** (every request logged, paginated) | ✅ |
 | **Multi-Tenant** (organizations, team isolation) | ✅ |
 | **Row-Level Locking** (concurrency-safe) | ✅ |
-| **Webhook Notifications** (budget exceeded, agent revoked) | ✅ |
-| **API Key Auth** + Admin Token | ✅ |
+| **Webhook Notifications** (HMAC-SHA256, budget exceeded, agent revoked) | ✅ |
+| **API Key Management** (DB-backed, CRUD, revoke, expiry) | ✅ |
 | **Rate Limiting** (60 req/min per IP) | ✅ |
 | **Prometheus Metrics** (`/metrics`) | ✅ |
-| **Dark-Mode Dashboard** (real-time monitoring) | ✅ |
+| **Dark-Mode Dashboard** (auth-protected) | ✅ |
 | **Soft-Delete Agents** (keep historical data) | ✅ |
 | **Graceful Shutdown** (Docker / K8s ready) | ✅ |
-|| **LangChain / CrewAI** integration examples | ✅ |
-|| **Auto Budget Reset** (daily/monthly scheduler) | ✅ |
-|| **DB-Backed API Key Management** (CRUD, revoke, expiry) | ✅ |
-|| **Webhook HMAC-SHA256 Signatures** | ✅ |
-|| **Dashboard Basic Auth** | ✅ |
-|| **Crash Recovery** (auto-finalize expired reservations) | ✅ |
-|| **WAL Backup Script** (automated SQLite backups) | ✅ |
-|| **Health Endpoint v2** (DB + scheduler status) | ✅ |
-|| **Redis Backend** (multi-instance scaling) | 🔜 |
-|| **Slack / Discord Alerts** | 🔜 |
-|| **Terraform Provider** | 🔜 |
-|| **Policy Engine** (OPA integration) | 🔜 |
+| **LangChain / CrewAI** integration examples | ✅ |
+| **Auto Budget Reset** (daily/monthly scheduler) | ✅ |
+| **Crash Recovery** (auto-finalize expired reservations) | ✅ |
+| **WAL Backup Script** (automated SQLite backups) | ✅ |
+| **Health Endpoint v2** (DB + scheduler status) | ✅ |
+| **Redis Backend** (multi-instance scaling) | 🔜 |
+| **Slack / Discord Alert Templates** | 🔜 |
+| **Terraform Provider** | 🔜 |
+| **Policy Engine** (OPA integration) | 🔜 |
 
 ---
 
@@ -86,7 +83,7 @@ That last piece? Doesn't exist. Until now.
 ```bash
 git clone https://github.com/michael-ebering/resgov.git
 cd resgov
-cp .env.example .env          # Set RESGOV_API_KEYS and RESGOV_ADMIN_TOKEN
+cp .env.example .env          # Set RESGOV_ADMIN_TOKEN
 docker compose up -d
 # API:       http://localhost:8080
 # Proxy:     http://localhost:8080/v1
@@ -110,15 +107,15 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
 ## ☝️ LLM Proxy (the killer feature)
 
-ResGov acts as a **transparent OpenAI/Anthropic-compatible proxy**. Your agents don't need custom code — just change the `base_url`.
+ResGov (RGF) acts as a **transparent OpenAI/Anthropic-compatible proxy**. Your agents don't need custom code — just change the `base_url`.
 
 ### How it works
 ```
-Agent → ResGov Proxy → Budget Check → Upstream LLM (OpenRouter, etc.)
-                         ↓
-                    1. RESERVE pessimistic max_cost (milliseconds lock)
-                    2. STREAM response to agent (no DB lock!)
-                    3. FINALIZE with actual token usage (refund difference)
+Agent → RGF Proxy → Budget Check → Upstream LLM (OpenRouter, etc.)
+                        ↓
+                   1. RESERVE pessimistic max_cost (milliseconds lock)
+                   2. STREAM response to agent (no DB lock!)
+                   3. FINALIZE with actual token usage (refund difference)
 ```
 
 **Key insight:** The database lock lasts only milliseconds (BEGIN IMMEDIATE + UPDATE + COMMIT). The streaming phase is completely lock-free. No deadlocks, no blocked parallel agents.
@@ -132,7 +129,7 @@ from langchain_openai import ChatOpenAI
 llm = ChatOpenAI(
     model="anthropic/claude-sonnet-4",
     base_url="http://localhost:8080/v1",
-    api_key="your-resgov-api-key",
+    api_key="your-rgf-api-key",
     default_headers={"X-ResGov-Agent-ID": "my-agent-01"},
 )
 
@@ -146,7 +143,7 @@ from crewai import Agent, LLM
 llm = LLM(
     model="openai/anthropic/claude-sonnet-4",
     base_url="http://localhost:8080/v1",
-    api_key="your-resgov-api-key",
+    api_key="your-rgf-api-key",
     extra_headers={"X-ResGov-Agent-ID": "crew-lead"},
 )
 
@@ -163,7 +160,7 @@ from openai import OpenAI
 
 client = OpenAI(
     base_url="http://localhost:8080/v1",
-    api_key="your-resgov-api-key",
+    api_key="your-rgf-api-key",
 )
 
 response = client.chat.completions.create(
@@ -177,7 +174,7 @@ response = client.chat.completions.create(
 #### Raw curl
 ```bash
 curl -X POST http://localhost:8080/v1/chat/completions \
-  -H "Authorization: Bearer your-resgov-api-key" \
+  -H "Authorization: Bearer your-rgf-api-key" \
   -H "X-ResGov-Agent-ID: my-agent" \
   -H "Content-Type: application/json" \
   -d '{
@@ -250,6 +247,9 @@ DELETE /api/v1/agents/scraper-01
 ```http
 POST /api/v1/admin/reset-daily     → Reset all daily budgets
 POST /api/v1/admin/reset-monthly   → Reset all monthly budgets
+POST /api/v1/admin/generate-key    → Generate new API key
+GET  /api/v1/admin/keys            → List all API keys
+DELETE /api/v1/admin/keys/{id}     → Revoke an API key
 GET  /api/v1/audit?page=1&page_size=100  → Paginated audit trail
 GET  /metrics                      → Prometheus metrics
 ```
@@ -259,27 +259,32 @@ GET  /metrics                      → Prometheus metrics
 ## ☝️ Architecture
 
 ```
-                          ┌─────────────────────────────────┐
-                          │          ResGov Broker           │
-                          └───────────────┬─────────────────┘
-                                          │
-          ┌───────────┬───────────┬───────┴────────┬──────────────┐
-          │           │           │                │              │
-    ┌─────▼─────┐ ┌───▼───┐ ┌────▼────┐ ┌────────▼──────┐ ┌─────▼──────┐
-    │ Auth Layer │ │Budget │ │  LLM    │ │   Webhooks    │ │ Prometheus │
-    │ API Keys   │ │Engine │ │  Proxy  │ │ Discord/Slack │ │ /metrics   │
-    │ Admin Tok. │ │       │ │Reserve→ │ │               │ │            │
-    └───────────┘ └───┬───┘ │Stream→  │ └───────────────┘ └────────────┘
-                      │     │Finalize │
-               ┌──────▼─────▼─────────┐
-               │    SQLite (WAL)       │
-               │  ┌─────┐ ┌─────────┐  │
-               │  │Agent│ │ Budgets │  │
-               │  └─────┘ └─────────┘  │
-               │  ┌───────────────────┐ │
-               │  │  Bookings (Audit) │ │
-               │  └───────────────────┘ │
-               └────────────────────────┘
+                    ┌──────────────────────────────────┐
+                    │          RGF Broker              │
+                    └──────────────┬───────────────────┘
+                                   │
+            ┌──────────┬───────────┼───────────┬──────────────┐
+            │          │           │           │              │
+     ┌──────▼────┐ ┌───▼───┐ ┌────▼────┐ ┌───▼─────┐ ┌─────▼──────┐
+     │   Auth    │ │Budget │ │  LLM    │ │Webhooks │ │ Prometheus │
+     │   Layer   │ │Engine │ │  Proxy  │ │Discord/ │ │  /metrics  │
+     │ API Keys  │ │       │ │Reserve  │ │Slack    │ │            │
+     │ Admin Tok │ │       │ │Stream   │ │HMAC     │ │            │
+     └───────────┘ └───┬───┘ │Finalize │ └─────────┘ └────────────┘
+                       │     └─────────┘
+                ┌──────▼──────────────┐
+                │    SQLite (WAL)     │
+                │  ┌──────┬────────┐  │
+                │  │Agents│Budgets │  │
+                │  └──────┴────────┘  │
+                │  ┌────────────────┐ │
+                │  │Bookings (Audit)│ │
+                │  └────────────────┘ │
+                │  ┌────────────────┐ │
+                │  │  Reserved      │ │
+                │  │  Budgets       │ │
+                │  └────────────────┘ │
+                └─────────────────────┘
 ```
 
 ### Design Decisions
@@ -287,14 +292,16 @@ GET  /metrics                      → Prometheus metrics
 - **SQLite WAL**: Concurrent reads + serialized writes. No separate DB server. Perfect for single-instance and edge deployments.
 - **Pre-Commit / Finalize Pattern**: Reserve pessimistic max_cost at stream start (milliseconds lock), refund difference at stream end. No long-held locks.
 - **Thread-Local Connections**: No connection pool headaches. One connection per thread, properly isolated.
-- **Webhooks**: Fire-and-forget async. Your agents don't wait for Slack to render.
+- **Webhooks**: Fire-and-forget async with HMAC-SHA256 signatures. Your agents don't wait for Slack to render.
 - **Price Table**: Configurable via `RESGOV_PRICE_TABLE` env var. Ships with defaults for GPT-4o, Claude Sonnet, DeepSeek, Gemini.
+- **Auto Scheduler**: Daily budget reset at 00:00 UTC, monthly on 1st, expired reservation cleanup every 2 minutes.
+- **Crash Recovery**: Reserved budgets auto-expire after 5 minutes. No stuck reservations after agent crashes.
 
 ---
 
 ## ☝️ Dashboard
 
-Dark-mode real-time monitoring at `http://localhost:8080/dash`:
+Dark-mode real-time monitoring at `http://localhost:8080/dash` (auth-protected via `RESGOV_DASH_USER` / `RESGOV_DASH_PASS`):
 
 - Live agent status (active / paused / revoked)
 - Budget consumption bars (green → yellow → red)
@@ -308,15 +315,17 @@ Dark-mode real-time monitoring at `http://localhost:8080/dash`:
 
 | Concern | Solution |
 |---|---|
-| **Authentication** | API keys via `X-API-Key` header + Admin token |
+| **Authentication** | DB-backed API keys via `X-API-Key` header + Admin token |
 | **Rate Limiting** | 60 requests/minute per IP |
 | **CORS** | Configurable allowed origins |
 | **TLS/SSL** | Traefik with Let's Encrypt |
-| **Health Checks** | `/health` endpoint + Docker HEALTHCHECK |
-| **Graceful Shutdown** | SIGTERM handling, connection cleanup |
+| **Health Checks** | `/health` endpoint (DB + scheduler status) + Docker HEALTHCHECK |
+| **Graceful Shutdown** | SIGTERM handling, connection cleanup, scheduler stop |
 | **Thread Safety** | Thread-local SQLite connections |
 | **Concurrency** | WAL mode + BEGIN IMMEDIATE + retry |
 | **Budget Safety** | Pre-commit / finalize, no double-spend |
+| **Crash Recovery** | Auto-finalize expired reservations (5-min timeout) |
+| **Backups** | WAL backup script with configurable retention |
 
 ---
 
@@ -339,29 +348,29 @@ docker build -t resgov:latest .
 
 ### Test Coverage
 ```
-tests/test_evals.py — 19/19 passing
-  Agent registration, budget enforcement, denial reasons,
-  paused agents, audit trail, multi-tenant, budget reset,
-  auth, admin token, rate limiting, pagination,
-  soft-delete, webhooks, concurrent booking,
-  graceful error, metrics endpoint
+tests/test_evals.py — 44/44 passing
+  Budget enforcement, concurrent access, budget reset,
+  parallel stress, invalid agents, invalid budgets,
+  empty state, audit trail, pagination,
+  auth, API key CRUD, soft-delete,
+  proxy reserve/finalize, crash recovery,
+  admin endpoints, health endpoint
 ```
 
 ---
 
 ## ☝️ Roadmap
 
-### v0.4 (next)
+### v0.5 (next)
 - [ ] Redis backend for multi-instance deployments
 - [ ] Slack / Discord webhook templates
 - [ ] Budget forecasting (spend pattern analysis)
 - [ ] Per-resource-type budgets (separate limits for `api_call` vs `compute`)
 
-### v0.5
+### v0.6
 - [ ] OPA (Open Policy Engine) integration
 - [ ] Terraform provider
 - [ ] Helm chart for Kubernetes
-- [ ] Scheduled budgets (cron-based reset)
 
 ### v1.0
 - [ ] Cloud SaaS offering (resgov.silentops.cloud)
