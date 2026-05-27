@@ -1,5 +1,34 @@
 # CHANGELOG
 
+## v0.4.4 - 2026-05-28
+
+### Hinzugefügt
+
+- **[BudgetEngine]** Implementierung der Methode `get_budget_prediction` zur prädiktiven Vorhersage der Budgeterschöpfung von Agenten.
+- **[API]** Neuer API-Endpunkt `GET /api/v1/agents/{agent_id}/prediction` zur Abfrage der Budget-Prognosen.
+- **[Dashboard]** Integration der Budget-Prognose für jeden Agenten in die Dashboard-Ansicht (`dash/index.html`).
+- **[Tests]** Umfassende Testfälle (`tests/test_predictions.py`) für die `get_budget_prediction`-Methode und den zugehörigen API-Endpunkt.
+
+### Geändert
+
+- **[BudgetEngine]** `BudgetEngine.__init__` erweitert, um eine explizite DB-Verbindung für Testzwecke zu akzeptieren.
+- **[BudgetEngine]** Korrektur der `remaining_time_seconds`-Berechnung in `get_budget_prediction` für präzisere Prognosen.
+- **[Tests]** `tests/test_predictions.py` Fixtures und Helferfunktionen angepasst, um die `BudgetEngine` und den FastAPI `TestClient` korrekt zu initialisieren und Datenbank-Overrides zu verwenden.
+
+## v0.4.3 - 2026-05-28
+
+### Hinzugefügt
+
+- **[.rgf file]** Unterstützung für lokale `.rgf`-Konfigurationsdateien im TOML-Format, inspiriert von `.gitignore`.
+- **[BudgetEngine]** Die `BudgetEngine` berücksichtigt nun `daily_budget`, `monthly_budget`, `allowed_models` und `max_tokens_per_request` aus der `.rgf`-Datei. `.rgf`-Regeln können über die API gesetzte Limits verschärfen.
+- **[LLM Proxy]** Implementierung der `fail_safe_action` aus der `.rgf`-Konfiguration, um das Verhalten des LLM-Proxys bei Ausfall des Budget-Systems zu definieren (`allow` oder `deny`).
+- **[Core]** Neues `src/config.py`-Modul zum Laden und Parsen der `.rgf`-Datei.
+
+### Geändert
+
+- **[API]** `BudgetEngine` Initialisierung in `src/api.py` aktualisiert, um `rgf_config` zu übergeben.
+- **[BudgetEngine]** `reserve_budget`-Methode in `src/engine.py` akzeptiert nun `model` und `max_tokens` zur detaillierteren Überprüfung durch `.rgf`-Regeln.
+
 ## v0.4.2 - 2026-05-28
 
 ### Hinzugefügt
