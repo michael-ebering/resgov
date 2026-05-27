@@ -495,7 +495,7 @@ class BudgetEngine:
                 "remaining_budget": remaining_budget,
                 "rate_usd_per_hour": round(rate_usd_per_hour, 4),
                 "prediction_timestamp": prediction_timestamp,
-                "remaining_time_seconds": int(remaining_time_hours * 3600)}
+                "remaining_time_seconds": remaining_time_hours * 3600}
 
 
     def reserve_budget(self, agent_id: str, max_cost: float, 
