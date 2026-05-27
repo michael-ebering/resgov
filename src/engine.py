@@ -66,8 +66,9 @@ class BudgetEngine:
     Thread-safe with row-level locking via SQLite BEGIN IMMEDIATE.
     """
 
-    def __init__(self, rgf_config: Optional[Dict] = None):
+    def __init__(self, rgf_config: Optional[Dict] = None, db: Optional[sqlite3.Connection] = None):
         self.rgf_config = rgf_config or {}
+        self.db_override = db # For testing purposes, allows injecting a specific DB conn
 
     MAX_RETRIES = 3
     RETRY_DELAY = 0.1  # seconds
@@ -79,8 +80,12 @@ class BudgetEngine:
         """
         for attempt in range(self.MAX_RETRIES):
             try:
-                with get_transaction() as db:
+                if self.db_override:
+                    db = self.db_override
                     return operation(db)
+                else:
+                    with get_transaction() as db:
+                        return operation(db)
             except sqlite3.OperationalError as e:
                 if "locked" in str(e).lower() and attempt < self.MAX_RETRIES - 1:
                     logger.warning(f"DB locked, retry {attempt + 1}/{self.MAX_RETRIES}: {description}")
