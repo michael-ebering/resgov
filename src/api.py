@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 from .models import init_db, reset_daily_budgets, reset_monthly_budgets
 from .engine import BudgetEngine
-from .auth import verify_api_key, verify_admin_token, generate_api_key, ADMIN_TOKEN, init_api_keys_table, create_api_key, revoke_api_key, list_api_keys
+from .auth import verify_api_key, verify_admin_token, generate_api_key, ADMIN_TOKEN, init_api_keys_table, create_api_key, revoke_api_key, list_api_keys, _get_db
 from .middleware import setup_cors, RateLimitMiddleware, RequestLoggingMiddleware, ConnectionPool, logger
 from .scheduler import start_scheduler, stop_scheduler
 
@@ -216,6 +216,23 @@ async def get_audit(
     """Get paginated audit trail. Optionally filter by org_id for tenant isolation."""
     engine = BudgetEngine()
     return engine.get_audit_log(org_id=org_id, page=page, page_size=page_size)
+
+@app.get("/api/v1/user/keys")
+async def list_user_api_keys(owner_info=Depends(require_api_key)):
+    """List API keys belonging to the authenticated user's organization."""
+    org_id = owner_info["org_id"]
+    return list_api_keys(org_id=org_id)
+
+@app.delete("/api/v1/user/keys/{key_id}")
+async def revoke_user_key(key_id: int, owner_info=Depends(require_api_key)):
+    """Revoke an API key belonging to the authenticated user's organization."""
+    user_org_id = owner_info["org_id"]
+    db = _get_db() # Assuming _get_db is accessible or imported here similar to init_db
+    key_row = db.execute("SELECT org_id FROM api_keys WHERE id = ?", (key_id,)).fetchone()
+    if key_row and key_row['org_id'] == user_org_id:
+        if revoke_api_key(key_id):
+            return {"status": "ok", "message": f"Key {key_id} revoked."}
+    raise HTTPException(status_code=404, detail=f"Key {key_id} not found or not authorized.")
 
 # --- Admin Endpoints (require admin token) ---
 
