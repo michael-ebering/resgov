@@ -28,7 +28,7 @@ ResGov is a lightweight, ultra-low-latency proxy and governance engine. It compl
 ### The Problem
 Your agents make thousands of autonomous API calls. The moment they get stuck in a recursive loop while you sleep, they generate catastrophic API bills. Modern LLM providers offer billing alerts, but **no real-time, granular execution-level budget enforcement**.
 
-<h3>The Multi-Agent Stack</h3>
+### The Multi-Agent Stack
 - **MCP** (Model Context Protocol) → Defines _how agents talk to tools_.
 - **A2A** (Agent-to-Agent) → Defines _how agents delegate tasks_.
 - **RGF** (Resource Governance Framework) → Defines _how agents **spend your money**_.
