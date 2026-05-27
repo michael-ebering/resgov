@@ -5,7 +5,7 @@ Thanks for your interest. Here's how to contribute:
 ## Setup
 
 ```bash
-git clone https://github.com/Strnth/resgov.git
+git clone https://github.com/michael-ebering/resgov.git
 cd resgov
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt

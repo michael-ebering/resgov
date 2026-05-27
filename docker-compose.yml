@@ -9,7 +9,7 @@ services:
       - resgov-data:/data
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.resgov.rule=Host(`resgov.silentops.cloud`)"
+      - "traefik.http.routers.resgov.rule=Host(`api.resgov.silentops.cloud`)"
       - "traefik.http.routers.resgov.entrypoints=websecure"
       - "traefik.http.routers.resgov.tls.certresolver=letsencrypt"
       - "traefik.http.services.resgov.loadbalancer.server.port=8080"

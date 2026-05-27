@@ -6,7 +6,7 @@
 <img src="https://img.shields.io/badge/Docker-✓-2496ED?logo=docker&logoColor=white" alt="Docker">
 <img src="https://img.shields.io/badge/Tests-19/19_passing-success" alt="Tests">
 <img src="https://img.shields.io/badge/License-BSL_1.1-orange" alt="License">
-<a href="https://github.com/Strnth/resgov/stargazers"><img src="https://img.shields.io/github/stars/Strnth/resgov?style=social" alt="Stars"></a>
+<a href="https://github.com/michael-ebering/resgov/stargazers"><img src="https://img.shields.io/github/stars/michael-ebering/resgov?style=social" alt="Stars"></a>
 
 # **ResGov**
 
@@ -75,7 +75,7 @@ That last piece? Doesn't exist. Until now.
 
 ### Docker (recommended)
 ```bash
-git clone https://github.com/Strnth/resgov.git
+git clone https://github.com/michael-ebering/resgov.git
 cd resgov
 cp .env.example .env          # Set RESGOV_API_KEYS and RESGOV_ADMIN_TOKEN
 docker compose up -d
