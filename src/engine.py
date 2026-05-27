@@ -22,18 +22,26 @@ WEBHOOK_SECRET = os.environ.get("RESGOV_WEBHOOK_SECRET", "")
 
 
 def _send_webhook(event: str, data: dict):
-    """Send webhook notification (async fire-and-forget)."""
+    """Send webhook notification (async fire-and-forget) with HMAC-SHA256 signature."""
     if not WEBHOOK_URL:
         return
 
     import urllib.request
     import urllib.error
+    import hmac
 
     payload = json.dumps({
         "event": event,
         "data": data,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }).encode()
+
+    # HMAC-SHA256 signature
+    signature = hmac.new(
+        WEBHOOK_SECRET.encode(),
+        payload,
+        "sha256",
+    ).hexdigest()
 
     try:
         req = urllib.request.Request(
@@ -42,7 +50,7 @@ def _send_webhook(event: str, data: dict):
             headers={
                 "Content-Type": "application/json",
                 "X-ResGov-Event": event,
-                "X-ResGov-Signature": WEBHOOK_SECRET,
+                "X-ResGov-Signature": f"sha256={signature}",
             },
             method="POST",
         )
@@ -475,6 +483,15 @@ class BudgetEngine:
                 (agent_id, max_cost, now),
             )
 
+            # Track reservation for crash recovery (5-minute expiry)
+            from datetime import timedelta
+            expires = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
+            db.execute(
+                """INSERT INTO reserved_budgets (agent_id, reserved_cost, booking_id, expires_at)
+                   VALUES (?, ?, last_insert_rowid(), ?)""",
+                (agent_id, max_cost, expires),
+            )
+
             remaining_budgets = []
             for budget in budgets:
                 new_spent = budget["spent_amount"] + max_cost
@@ -525,6 +542,12 @@ class BudgetEngine:
                 """INSERT INTO bookings (agent_id, resource_type, action, cost, metadata, status, created_at)
                    VALUES (?, 'llm_call', 'proxy_finalize', ?, ?, 'success', ?)""",
                 (agent_id, actual_cost, json.dumps({"reserved": reserved_cost, "refund": refund}), now),
+            )
+
+            # Close reservation
+            db.execute(
+                "UPDATE reserved_budgets SET status = 'finalized' WHERE agent_id = ? AND status = 'active'",
+                (agent_id,),
             )
 
             return {

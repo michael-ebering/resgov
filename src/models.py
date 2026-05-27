@@ -73,6 +73,21 @@ def init_db(db: Optional[sqlite3.Connection] = None):
             FOREIGN KEY (agent_id) REFERENCES agents(id)
         );
 
+        -- Reserved budgets (for proxy crash recovery)
+        CREATE TABLE IF NOT EXISTS reserved_budgets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            agent_id TEXT NOT NULL,
+            reserved_cost REAL NOT NULL,
+            booking_id INTEGER,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            expires_at TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'finalized', 'expired')),
+            FOREIGN KEY (agent_id) REFERENCES agents(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_reserved_budgets_agent ON reserved_budgets(agent_id);
+        CREATE INDEX IF NOT EXISTS idx_reserved_budgets_status ON reserved_budgets(status);
+        CREATE INDEX IF NOT EXISTS idx_reserved_budgets_expires ON reserved_budgets(expires_at);
+
         -- Indexes for performance
         CREATE INDEX IF NOT EXISTS idx_bookings_agent_id ON bookings(agent_id);
         CREATE INDEX IF NOT EXISTS idx_bookings_created_at ON bookings(created_at);

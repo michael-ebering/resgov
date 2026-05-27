@@ -16,8 +16,11 @@ from pydantic import BaseModel, Field
 
 from .models import init_db, reset_daily_budgets, reset_monthly_budgets
 from .engine import BudgetEngine
-from .auth import verify_api_key, verify_admin_token, generate_api_key, API_KEYS, ADMIN_TOKEN
+from .auth import verify_api_key, verify_admin_token, generate_api_key, ADMIN_TOKEN, init_api_keys_table, create_api_key, revoke_api_key, list_api_keys
 from .middleware import setup_cors, RateLimitMiddleware, RequestLoggingMiddleware, ConnectionPool, logger
+from .scheduler import start_scheduler, stop_scheduler
+
+import secrets
 
 # --- Pydantic Models ---
 
@@ -64,11 +67,16 @@ async def lifespan(app: FastAPI):
     from .middleware import get_db
     db = get_db()
     init_db(db)
+    init_api_keys_table()
 
-    logger.info(f"ResGov started | DB: {db_path} | API keys: {len(API_KEYS) or 'DEV MODE'}")
+    # Start scheduler
+    start_scheduler()
+
+    logger.info(f"ResGov started | DB: {db_path}")
     yield
 
     # Cleanup
+    stop_scheduler()
     pool = _pool
     pool.close_all()
     logger.info("ResGov shutdown complete")
@@ -174,6 +182,12 @@ async def book_resource(req: BookingRequest, owner=Depends(require_api_key)):
         return JSONResponse(status_code=403, content=result)
     return result
 
+@app.get("/api/v1/agents")
+async def list_agents(org_id: Optional[str] = None, owner=Depends(require_api_key)):
+    """List all active agents. Optionally filter by org_id."""
+    engine = BudgetEngine()
+    return engine.list_agents(org_id=org_id)
+
 @app.get("/api/v1/usage/{agent_id}")
 async def get_usage(
     agent_id: str,
@@ -194,7 +208,7 @@ async def get_audit(
     page_size: int = Query(default=100, ge=1, le=500),
     owner=Depends(require_api_key),
 ):
-    """Get paginated audit trail."""
+    """Get paginated audit trail. Optionally filter by org_id for tenant isolation."""
     engine = BudgetEngine()
     return engine.get_audit_log(org_id=org_id, page=page, page_size=page_size)
 
@@ -213,17 +227,58 @@ async def reset_monthly(_=Depends(require_admin)):
     return {"status": "ok", "message": "Monthly budgets reset."}
 
 @app.post("/api/v1/admin/generate-key")
-async def gen_key(_=Depends(require_admin)):
+async def gen_key(req: dict, _=Depends(require_admin)):
     """Generate a new API key."""
-    new_key = generate_api_key()
-    return {"api_key": new_key, "hint": "Add to RESGOV_API_KEYS env var"}
+    key = create_api_key(
+        owner=req.get("owner", "anonymous"),
+        org_id=req.get("org_id", "default"),
+        name=req.get("name", ""),
+        scopes=req.get("scopes", "read,write"),
+        expires_at=req.get("expires_at"),
+    )
+    return {"api_key": key, "hint": "Store this key — it won't be shown again."}
+
+@app.get("/api/v1/admin/keys")
+async def list_keys(org_id: Optional[str] = None, _=Depends(require_admin)):
+    """List all API keys (without secret hashes)."""
+    return list_api_keys(org_id=org_id)
+
+@app.delete("/api/v1/admin/keys/{key_id}")
+async def revoke_key(key_id: int, _=Depends(require_admin)):
+    """Revoke an API key by ID."""
+    if revoke_api_key(key_id):
+        return {"status": "ok", "message": f"Key {key_id} revoked."}
+    raise HTTPException(status_code=404, detail=f"Key {key_id} not found.")
 
 # --- Health & Metrics ---
 
 @app.get("/health")
 async def health():
-    """Health check."""
-    return {"status": "ok", "service": "resgov", "version": "0.3.0"}
+    """Health check with DB connectivity verification."""
+    db_status = "ok"
+    try:
+        from .middleware import get_db
+        db = get_db()
+        db.execute("SELECT 1")
+    except Exception as e:
+        db_status = f"error: {e}"
+
+    scheduler_status = "ok"
+    try:
+        from .scheduler import _scheduler
+        if _scheduler is None or not _scheduler.running:
+            scheduler_status = "stopped"
+    except Exception:
+        scheduler_status = "unknown"
+
+    status = "ok" if db_status == "ok" and scheduler_status == "ok" else "degraded"
+    return {
+        "status": status,
+        "service": "resgov",
+        "version": "0.4.0",
+        "db": db_status,
+        "scheduler": scheduler_status,
+    }
 
 @app.get("/metrics")
 async def metrics():
@@ -414,9 +469,29 @@ async def llm_proxy(
 
 # --- Dashboard (Basic Auth) ---
 
+DASH_USER = os.environ.get("RESGOV_DASH_USER", "admin")
+DASH_PASS = os.environ.get("RESGOV_DASH_PASS", "")
+
+async def require_dashboard_auth(request: Request):
+    """Require Basic Auth for dashboard if DASH_PASS is set."""
+    import base64
+    if not DASH_PASS:
+        return  # No auth required if not configured
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Basic "):
+        raise HTTPException(status_code=401, detail="Authentication required", headers={"WWW-Authenticate": "Basic"})
+    try:
+        decoded = base64.b64decode(auth[6:]).decode()
+        username, password = decoded.split(":", 1)
+        if not (secrets.compare_digest(username, DASH_USER) and secrets.compare_digest(password, DASH_PASS)):
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid authorization header")
+
 @app.get("/dash", response_class=HTMLResponse)
-async def dashboard():
+async def dashboard(request: Request):
     """Serve the monitoring dashboard."""
+    await require_dashboard_auth(request)
     dash_path = os.path.join(os.path.dirname(__file__), "..", "dash", "index.html")
     if os.path.exists(dash_path):
         with open(dash_path) as f:
