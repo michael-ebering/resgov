@@ -48,8 +48,10 @@ That last piece? Doesn't exist. Until now.
 
 ## ☝️ Features
 
+### Implemented
+
 | Feature | Status |
-|---|---|
+|:---|:---:|
 | **LLM Proxy** (OpenAI/Anthropic compatible, streaming) | ✅ |
 | **Pre-Commit / Finalize Budget Pattern** (no double-spend) | ✅ |
 | **Per-Agent Budgets** (daily / monthly / total) | ✅ |
@@ -70,10 +72,15 @@ That last piece? Doesn't exist. Until now.
 | **Crash Recovery** (auto-finalize expired reservations) | ✅ |
 | **WAL Backup Script** (automated SQLite backups) | ✅ |
 | **Health Endpoint v2** (DB + scheduler status) | ✅ |
-| **Redis Backend** (multi-instance scaling) | 🔜 |
-| **Slack / Discord Alert Templates** | 🔜 |
-| **Terraform Provider** | 🔜 |
-| **Policy Engine** (OPA integration) | 🔜 |
+
+### Planned
+
+| Feature | ETA |
+|:---|:---:|
+| **Redis Backend** (multi-instance scaling) | v0.5 |
+| **Slack / Discord Alert Templates** | v0.5 |
+| **Terraform Provider** | v0.6 |
+| **Policy Engine** (OPA integration) | v0.6 |
 
 ---
 
