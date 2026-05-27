@@ -485,7 +485,7 @@ class BudgetEngine:
                         "status": "denied",
                         "reason": "max_tokens_exceeded",
                         "message": f"Max tokens per request ({max_tokens}) exceeds .rgf limit ("
-                        f"{agent_rgf_config["max_tokens_per_request"]}) for agent '{agent_id}'.",
+                        f"{agent_rgf_config['max_tokens_per_request']}) for agent '{agent_id}'.",
                     }
 
             budgets = db.execute(
