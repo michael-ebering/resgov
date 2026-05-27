@@ -66,6 +66,9 @@ class BudgetEngine:
     Thread-safe with row-level locking via SQLite BEGIN IMMEDIATE.
     """
 
+    def __init__(self, rgf_config: Optional[Dict] = None):
+        self.rgf_config = rgf_config or {}
+
     MAX_RETRIES = 3
     RETRY_DELAY = 0.1  # seconds
 
@@ -98,7 +101,14 @@ class BudgetEngine:
         daily_limit: float = 5.0,
         monthly_limit: float = 100.0,
     ) -> dict:
-        """Register a new agent with default budgets."""
+        """Register a new agent with default budgets, respecting .rgf overrides."""
+
+        # Apply .rgf overrides if they are stricter
+        agent_rgf_config = self.rgf_config.get("agents", {}).get(agent_id, {})
+        if "daily_budget" in agent_rgf_config:
+            daily_limit = min(daily_limit, agent_rgf_config["daily_budget"])
+        if "monthly_budget" in agent_rgf_config:
+            monthly_limit = min(monthly_limit, agent_rgf_config["monthly_budget"])
 
         def _op(db):
             now = datetime.now(timezone.utc).isoformat()
@@ -124,9 +134,8 @@ class BudgetEngine:
                     """INSERT INTO budgets (agent_id, period, limit_amount, spent_amount, updated_at)
                        VALUES (?, ?, ?, 0.0, ?)
                        ON CONFLICT(agent_id, period) DO UPDATE SET
-                           limit_amount = excluded.limit_amount,
-                           updated_at = excluded.updated_at""",
-                    (agent_id, period, limit, now),
+                           limit_amount = ?, updated_at = ?""",
+                    (agent_id, period, limit, now, limit, now),
                 )
 
             return self.get_agent(db, agent_id)
@@ -424,7 +433,9 @@ class BudgetEngine:
 
     # --- Proxy Budget Management (Reserve / Finalize Pattern) ---
 
-    def reserve_budget(self, agent_id: str, max_cost: float) -> dict:
+    def reserve_budget(self, agent_id: str, max_cost: float, 
+                       model: Optional[str] = None, 
+                       max_tokens: Optional[int] = None) -> dict:
         """
         Reserve budget for an LLM proxy call.
         Deducts max_cost immediately (pessimistic).
@@ -458,6 +469,24 @@ class BudgetEngine:
                     "reason": f"agent_{agent['status']}",
                     "message": f"Agent '{agent_id}' is {agent['status']}.",
                 }
+
+            # Apply .rgf model and token limits
+            agent_rgf_config = self.rgf_config.get("agents", {}).get(agent_id, {})
+            if model and "allowed_models" in agent_rgf_config:
+                if model not in agent_rgf_config["allowed_models"]:
+                    return {
+                        "status": "denied",
+                        "reason": "model_not_allowed",
+                        "message": f"Model '{model}' is not allowed for agent '{agent_id}' by .rgf configuration.",
+                    }
+            if max_tokens and "max_tokens_per_request" in agent_rgf_config:
+                if max_tokens > agent_rgf_config["max_tokens_per_request"]:
+                    return {
+                        "status": "denied",
+                        "reason": "max_tokens_exceeded",
+                        "message": f"Max tokens per request ({max_tokens}) exceeds .rgf limit ("
+                        f"{agent_rgf_config["max_tokens_per_request"]}) for agent '{agent_id}'.",
+                    }
 
             budgets = db.execute(
                 "SELECT * FROM budgets WHERE agent_id = ?", (agent_id,)

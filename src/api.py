@@ -21,6 +21,9 @@ from .middleware import setup_cors, RateLimitMiddleware, RequestLoggingMiddlewar
 from .scheduler import start_scheduler, stop_scheduler
 
 import secrets
+from .config import load_rgf_config
+
+RGF_CONFIG = {}
 
 # --- Pydantic Models ---
 
@@ -80,6 +83,11 @@ async def lifespan(app: FastAPI):
     # Init shared httpx client for connection pooling
     _httpx_client = httpx.AsyncClient(timeout=120.0)
 
+    # Load .rgf configuration
+    global RGF_CONFIG
+    RGF_CONFIG = load_rgf_config()
+    logger.info(f"Loaded .rgf config: {RGF_CONFIG}")
+
     logger.info(f"ResGov started | DB: {db_path}")
     yield
 
@@ -119,7 +127,7 @@ async def require_admin(x_admin_token: Optional[str] = Header(None, alias="X-Adm
 @app.post("/api/v1/agents", status_code=201)
 async def register_agent(req: AgentRegister, owner=Depends(require_api_key)):
     """Register a new agent with budgets."""
-    engine = BudgetEngine()
+    engine = BudgetEngine(rgf_config=RGF_CONFIG)
     try:
         agent = engine.register_agent(
             agent_id=req.agent_id,
@@ -138,7 +146,7 @@ async def register_agent(req: AgentRegister, owner=Depends(require_api_key)):
 @app.get("/api/v1/agents/{agent_id}")
 async def get_agent(agent_id: str, owner=Depends(require_api_key)):
     """Get agent status and budget."""
-    engine = BudgetEngine()
+    engine = BudgetEngine(rgf_config=RGF_CONFIG)
     agent = engine.get_agent(agent_id=agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found.")
@@ -147,7 +155,7 @@ async def get_agent(agent_id: str, owner=Depends(require_api_key)):
 @app.put("/api/v1/agents/{agent_id}/budget")
 async def update_budget(agent_id: str, req: BudgetUpdate, owner=Depends(require_api_key)):
     """Update an agent's budget."""
-    engine = BudgetEngine()
+    engine = BudgetEngine(rgf_config=RGF_CONFIG)
     agent = engine.get_agent(agent_id=agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found.")
@@ -156,7 +164,7 @@ async def update_budget(agent_id: str, req: BudgetUpdate, owner=Depends(require_
 @app.delete("/api/v1/agents/{agent_id}")
 async def delete_agent(agent_id: str, owner=Depends(require_api_key)):
     """Soft-delete an agent (revoke access, keep audit trail)."""
-    engine = BudgetEngine()
+    engine = BudgetEngine(rgf_config=RGF_CONFIG)
     agent = engine.get_agent(agent_id=agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found.")
@@ -169,7 +177,7 @@ async def book_resource(req: BookingRequest, owner=Depends(require_api_key)):
     Returns 200 if approved, 403 if denied.
     """
     _metrics["requests_total"] += 1
-    engine = BudgetEngine()
+    engine = BudgetEngine(rgf_config=RGF_CONFIG)
     result = engine.book(
         agent_id=req.agent_id,
         resource_type=req.resource_type,
@@ -190,7 +198,7 @@ async def book_resource(req: BookingRequest, owner=Depends(require_api_key)):
 @app.get("/api/v1/agents")
 async def list_agents(org_id: Optional[str] = None, owner=Depends(require_api_key)):
     """List all active agents. Optionally filter by org_id."""
-    engine = BudgetEngine()
+    engine = BudgetEngine(rgf_config=RGF_CONFIG)
     return engine.list_agents(org_id=org_id)
 
 @app.get("/api/v1/usage/{agent_id}")
@@ -200,7 +208,7 @@ async def get_usage(
     owner=Depends(require_api_key),
 ):
     """Get usage statistics for an agent."""
-    engine = BudgetEngine()
+    engine = BudgetEngine(rgf_config=RGF_CONFIG)
     usage = engine.get_usage(agent_id, limit=limit)
     if "error" in usage:
         raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found.")
@@ -214,7 +222,7 @@ async def get_audit(
     owner=Depends(require_api_key),
 ):
     """Get paginated audit trail. Optionally filter by org_id for tenant isolation."""
-    engine = BudgetEngine()
+    engine = BudgetEngine(rgf_config=RGF_CONFIG)
     return engine.get_audit_log(org_id=org_id, page=page, page_size=page_size)
 
 @app.get("/api/v1/user/keys")
@@ -415,8 +423,24 @@ async def llm_proxy(
     max_cost = _estimate_max_cost(model, max_tokens, price_table, _prompt_text if _prompt_text else None)
 
     # Phase 1: Reserve budget (milliseconds lock)
-    engine = BudgetEngine()
-    reservation = engine.reserve_budget(x_resgov_agent_id, max_cost)
+    engine = BudgetEngine(rgf_config=RGF_CONFIG)
+    try:
+        reservation = engine.reserve_budget(x_resgov_agent_id, max_cost, model=model, max_tokens=max_tokens)
+    except Exception as e:
+        logger.error(f"Budget reservation failed: {e}")
+        fail_safe_action = RGF_CONFIG.get("global", {}).get("fail_safe_action", "deny")
+        if fail_safe_action == "allow":
+            logger.warning(f"Budget system offline (fail_safe_action=allow). Allowing request for {x_resgov_agent_id}")
+            # Bypass budget, proceed with upstream call
+            class DummyReservation:
+                status = "reserved"
+                reserved_cost = max_cost # Still track for potential later finalization
+            reservation = DummyReservation()
+        else: # default to deny
+            raise HTTPException(
+                status_code=500,
+                detail=f"Budget system temporarily unavailable. ({e})"
+            )
 
     if reservation["status"] == "denied":
         _metrics["bookings_denied_total"] += 1
