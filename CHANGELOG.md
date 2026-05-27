@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## v0.4.2 - 2026-05-28
+
+### Hinzugefügt
+
+- **[API]** Neue Endpunkte `/api/v1/user/keys` (GET) und `/api/v1/user/keys/{key_id}` (DELETE) zum Verwalten von API-Schlüsseln auf Organisationsebene.
+- **[Dashboard]** Ein neues Dashboard-Modul zur API-Schlüsselverwaltung in `dash/index.html`, das Nutzern das Anzeigen und Widerrufen ihrer eigenen API-Schlüssel ermöglicht.
+- **[Dashboard]** Visuelle Verbesserungen für API-Schlüssel-Statustablellen und Aktions-Buttons.
+
 ## v0.4.1 - 2026-05-28
 
 ### Gefeatured
