@@ -475,7 +475,10 @@ DASH_PASS = os.environ.get("RESGOV_DASH_PASS", "")
 async def require_dashboard_auth(request: Request):
     """Require Basic Auth for dashboard if DASH_PASS is set."""
     import base64
-    if not DASH_PASS:
+    # Read at runtime so tests can override via os.environ
+    dash_pass = os.environ.get("RESGOV_DASH_PASS", "")
+    dash_user = os.environ.get("RESGOV_DASH_USER", "admin")
+    if not dash_pass:
         return  # No auth required if not configured
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("Basic "):
@@ -483,7 +486,7 @@ async def require_dashboard_auth(request: Request):
     try:
         decoded = base64.b64decode(auth[6:]).decode()
         username, password = decoded.split(":", 1)
-        if not (secrets.compare_digest(username, DASH_USER) and secrets.compare_digest(password, DASH_PASS)):
+        if not (secrets.compare_digest(username, dash_user) and secrets.compare_digest(password, dash_pass)):
             raise HTTPException(status_code=401, detail="Invalid credentials")
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid authorization header")

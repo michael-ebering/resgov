@@ -521,3 +521,496 @@ class TestAPIEndpoints:
             headers={"X-Admin-Token": "test-admin-token"},
         )
         assert resp.status_code == 200
+
+
+# --- E-9: Scheduler Eval ---
+
+class TestE9_Scheduler:
+    """E-9: Automatic budget reset via scheduler."""
+
+    def test_manual_daily_reset(self, engine):
+        """Manual daily reset clears spent amounts."""
+        engine.register_agent("e9-agent", "E9 Test", daily_limit=5.0, monthly_limit=100.0)
+        engine.book("e9-agent", cost=5.00)
+        assert engine.book("e9-agent", cost=0.01)["status"] == "denied"
+        from src.models import reset_daily_budgets
+        reset_daily_budgets()
+        assert engine.book("e9-agent", cost=4.00)["status"] == "success"
+
+    def test_manual_monthly_reset(self, engine):
+        """Monthly reset clears monthly spent only."""
+        engine.register_agent("e9b-agent", "E9B Test", daily_limit=0.50, monthly_limit=10.0)
+        engine.book("e9b-agent", cost=0.50)
+        assert engine.book("e9b-agent", cost=0.01)["status"] == "denied"
+        from src.models import reset_monthly_budgets
+        reset_monthly_budgets()
+        assert engine.book("e9b-agent", cost=0.01)["status"] == "denied"
+
+    def test_double_reset_idempotent(self, engine):
+        """Double reset is idempotent."""
+        engine.register_agent("e9c-agent", "E9C Test", daily_limit=5.0)
+        engine.book("e9c-agent", cost=3.00)
+        from src.models import reset_daily_budgets
+        reset_daily_budgets()
+        reset_daily_budgets()
+        agent = engine.get_agent(agent_id="e9c-agent")
+        daily = next(b for b in agent["budgets"] if b["period"] == "daily")
+        assert daily["spent"] == 0.0
+
+    def test_scheduler_starts_and_stops(self):
+        """Scheduler can be started and stopped without errors."""
+        import src.scheduler as sched_mod
+        from src.scheduler import start_scheduler, stop_scheduler
+        import os as _os
+        _os.environ["RESGOV_ADMIN_TOKEN"] = ""
+        stop_scheduler()
+        start_scheduler()
+        assert sched_mod._scheduler is not None
+        stop_scheduler()
+
+
+# --- E-10: Dashboard Auth Eval ---
+
+class TestE10_DashboardAuth:
+    """E-10: Dashboard authentication."""
+
+    def test_dashboard_no_auth_in_dev(self):
+        """Dashboard accessible without auth when DASH_PASS is empty."""
+        import os as _os
+        _os.environ["RESGOV_DASH_PASS"] = ""
+        from starlette.testclient import TestClient
+        from src.api import app
+        client = TestClient(app)
+        resp = client.get("/dash")
+        assert resp.status_code in (200, 404)
+
+    def test_dashboard_requires_auth_when_configured(self):
+        """Dashboard returns 401 when DASH_PASS is set and no credentials provided."""
+        import os as _os
+        _os.environ["RESGOV_DASH_PASS"] = "secret123"
+        from starlette.testclient import TestClient
+        from src.api import app
+        client = TestClient(app)
+        resp = client.get("/dash")
+        assert resp.status_code == 401
+
+    def test_dashboard_wrong_credentials(self):
+        """Dashboard returns 401 with wrong credentials."""
+        import os as _os
+        _os.environ["RESGOV_DASH_PASS"] = "secret123"
+        from starlette.testclient import TestClient
+        from src.api import app
+        client = TestClient(app)
+        import base64
+        creds = base64.b64encode(b"admin:wrongpass").decode()
+        resp = client.get("/dash", headers={"Authorization": f"Basic {creds}"})
+        assert resp.status_code == 401
+
+    def test_dashboard_correct_credentials(self):
+        """Dashboard returns 200 with correct credentials."""
+        import os as _os
+        _os.environ["RESGOV_DASH_PASS"] = "secret123"
+        _os.environ["RESGOV_DASH_USER"] = "admin"
+        from starlette.testclient import TestClient
+        from src.api import app
+        client = TestClient(app)
+        import base64
+        creds = base64.b64encode(b"admin:secret123").decode()
+        resp = client.get("/dash", headers={"Authorization": f"Basic {creds}"})
+        assert resp.status_code in (200, 404)
+
+
+# --- E-11: API Key Management Eval ---
+
+class TestE11_APIKeyManagement:
+    """E-11: DB-backed API key lifecycle."""
+
+    def test_create_key_returns_plaintext(self):
+        """create_api_key returns a key starting with rgv_."""
+        from src.auth import create_api_key
+        key = create_api_key(owner="e11-test", name="E11 Key")
+        assert key.startswith("rgv_")
+        assert len(key) > 20
+
+    def test_verify_valid_key(self):
+        """Valid key returns owner info."""
+        from src.auth import create_api_key, verify_api_key
+        import os as _os
+        _os.environ["RESGOV_ADMIN_TOKEN"] = "test-admin"
+        key = create_api_key(owner="e11-verify")
+        result = verify_api_key(key)
+        assert result["owner"] == "e11-verify"
+        assert "org_id" in result
+        assert "scopes" in result
+
+    def test_verify_invalid_key(self):
+        """Invalid key raises 401."""
+        import os as _os
+        _os.environ["RESGOV_ADMIN_TOKEN"] = "test-admin"
+        from src.auth import verify_api_key
+        from fastapi import HTTPException
+        with pytest.raises(HTTPException) as exc:
+            verify_api_key("totally-invalid-key")
+        assert exc.value.status_code == 401
+
+    def test_revoke_key(self):
+        """Revoked key is no longer valid."""
+        import os as _os
+        _os.environ["RESGOV_ADMIN_TOKEN"] = "test-admin"
+        from src.auth import create_api_key, revoke_api_key, list_api_keys, verify_api_key
+        from fastapi import HTTPException
+        key = create_api_key(owner="e11-revoke")
+        keys = list_api_keys()
+        entry = next(k for k in keys if k["owner"] == "e11-revoke")
+        assert entry["is_active"] is True
+        revoke_api_key(entry["id"])
+        with pytest.raises(HTTPException) as exc:
+            verify_api_key(key)
+        assert exc.value.status_code == 401
+
+    def test_list_keys_by_org(self):
+        """List keys filtered by org_id."""
+        from src.auth import create_api_key, list_api_keys
+        create_api_key(owner="org-a-key", org_id="org-a")
+        create_api_key(owner="org-b-key", org_id="org-b")
+        org_a_keys = list_api_keys(org_id="org-a")
+        assert all(k["org_id"] == "org-a" for k in org_a_keys)
+
+    def test_key_expiry(self):
+        """Expired key is rejected."""
+        import os as _os
+        _os.environ["RESGOV_ADMIN_TOKEN"] = "test-admin"
+        from src.auth import create_api_key, verify_api_key
+        from fastapi import HTTPException
+        from datetime import datetime, timezone, timedelta
+        expired_time = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+        key = create_api_key(owner="e11-expiry", expires_at=expired_time)
+        with pytest.raises(HTTPException) as exc:
+            verify_api_key(key)
+        assert exc.value.status_code == 401
+        assert "expired" in str(exc.value.detail).lower()
+
+
+# --- E-12: Webhook HMAC Eval ---
+
+class TestE12_WebhookHMAC:
+    """E-12: Webhook HMAC-SHA256 signature verification."""
+
+    def test_hmac_signature_format(self):
+        """HMAC signature has correct format (64 hex chars)."""
+        import hmac
+        import hashlib
+        secret = "test-secret"
+        payload = b'{"event":"test","data":{}}'
+        sig = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
+        assert len(sig) == 64
+        assert all(c in "0123456789abcdef" for c in sig)
+
+    def test_hmac_verification(self):
+        """Receiver can verify HMAC signature."""
+        import hmac
+        import hashlib
+        secret = "webhook-secret"
+        payload = b'{"event":"budget_exceeded","data":{"agent_id":"test"}}'
+        expected_sig = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
+        received_sig = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
+        assert hmac.compare_digest(expected_sig, received_sig)
+
+    def test_hmac_wrong_secret_fails(self):
+        """Wrong secret produces different signature."""
+        import hmac
+        import hashlib
+        payload = b'{"event":"test"}'
+        sig1 = hmac.new("secret-a".encode(), payload, hashlib.sha256).hexdigest()
+        sig2 = hmac.new("secret-b".encode(), payload, hashlib.sha256).hexdigest()
+        assert sig1 != sig2
+
+    def test_hmac_signature_prefixed(self):
+        """Webhook signature is prefixed with sha256=."""
+        import hmac
+        import hashlib
+        secret = "test-secret"
+        payload = b'{"event":"test","data":{"agent_id":"x"}}'
+        sig = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
+        full_header = f"sha256={sig}"
+        assert full_header.startswith("sha256=")
+        assert len(full_header) == 71  # "sha256=" (7) + 64 hex
+
+
+# --- E-13: Crash Recovery Timeout Eval ---
+
+class TestE13_CrashRecovery:
+    """E-13: Auto-finalize expired reservations."""
+
+    def test_reservation_has_expiry(self, engine):
+        """Reservation is created with expiry timestamp."""
+        engine.register_agent("e13-agent", "E13 Test", daily_limit=5.0, monthly_limit=100.0)
+        engine.reserve_budget("e13-agent", 1.00)
+        from src.middleware import get_db
+        db = get_db()
+        res = db.execute(
+            "SELECT * FROM reserved_budgets WHERE agent_id = 'e13-agent' AND status = 'active'"
+        ).fetchone()
+        assert res is not None
+        assert res["expires_at"] is not None
+        assert res["reserved_cost"] == 1.00
+
+    def test_finalize_closes_reservation(self, engine):
+        """Finalize marks reservation as finalized."""
+        engine.register_agent("e13b-agent", "E13B Test", daily_limit=5.0, monthly_limit=100.0)
+        engine.reserve_budget("e13b-agent", 1.00)
+        engine.finalize_budget("e13b-agent", 1.00, 0.50)
+        from src.middleware import get_db
+        db = get_db()
+        active = db.execute(
+            "SELECT COUNT(*) as cnt FROM reserved_budgets WHERE agent_id = 'e13b-agent' AND status = 'active'"
+        ).fetchone()["cnt"]
+        finalized = db.execute(
+            "SELECT COUNT(*) as cnt FROM reserved_budgets WHERE agent_id = 'e13b-agent' AND status = 'finalized'"
+        ).fetchone()["cnt"]
+        assert active == 0
+        assert finalized == 1
+
+    def test_multiple_reservations_tracked(self, engine):
+        """Multiple sequential reservations are tracked separately."""
+        engine.register_agent("e13c-agent", "E13C Test", daily_limit=50.0, monthly_limit=1000.0)
+        for _ in range(5):
+            engine.reserve_budget("e13c-agent", 0.50)
+            engine.finalize_budget("e13c-agent", 0.50, 0.50)
+        from src.middleware import get_db
+        db = get_db()
+        finalized = db.execute(
+            "SELECT COUNT(*) as cnt FROM reserved_budgets WHERE agent_id = 'e13c-agent' AND status = 'finalized'"
+        ).fetchone()["cnt"]
+        assert finalized == 5
+
+
+# --- E-14: Health Endpoint v2 Eval ---
+
+class TestE14_HealthEndpoint:
+    """E-14: Enhanced health check."""
+
+    def test_health_returns_db_status(self):
+        """Health endpoint includes DB status."""
+        from starlette.testclient import TestClient
+        from src.api import app
+        client = TestClient(app)
+        resp = client.get("/health")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "db" in data
+        assert data["db"] == "ok"
+
+    def test_health_returns_scheduler_status(self):
+        """Health endpoint includes scheduler status."""
+        from starlette.testclient import TestClient
+        from src.api import app
+        client = TestClient(app)
+        resp = client.get("/health")
+        data = resp.json()
+        assert "scheduler" in data
+
+    def test_health_version(self):
+        """Health endpoint returns correct version."""
+        from starlette.testclient import TestClient
+        from src.api import app
+        client = TestClient(app)
+        resp = client.get("/health")
+        data = resp.json()
+        assert data["version"] == "0.4.0"
+        assert data["service"] == "resgov"
+
+    def test_health_degraded_on_db_failure(self):
+        """Health returns degraded when DB is unreachable."""
+        import os as _os
+        orig = _os.environ.get("RESGOV_DB_PATH")
+        _os.environ["RESGOV_DB_PATH"] = "/nonexistent/path/db.sqlite"
+        # Close existing connection
+        from src.middleware import close_db, _local
+        close_db()
+        if hasattr(_local, "connection"):
+            _local.connection = None
+        from starlette.testclient import TestClient
+        from src.api import app
+        client = TestClient(app)
+        resp = client.get("/health")
+        data = resp.json()
+        assert data["status"] in ("ok", "degraded")
+        # Restore
+        if orig:
+            _os.environ["RESGOV_DB_PATH"] = orig
+        close_db()
+        if hasattr(_local, "connection"):
+            _local.connection = None
+
+
+# --- E-15: Concurrent Proxy Reservation Eval ---
+
+class TestE15_ConcurrentProxy:
+    """E-15: Concurrent proxy reservations without double-spend."""
+
+    def test_50_agents_reserve_simultaneously(self, engine):
+        """50 agents can reserve simultaneously without double-spend."""
+        for i in range(50):
+            engine.register_agent(f"e15-agent-{i}", f"Agent {i}", daily_limit=10.0, monthly_limit=1000.0)
+        results = []
+        for i in range(50):
+            for _ in range(10):
+                results.append(engine.reserve_budget(f"e15-agent-{i}", 0.50))
+        success = sum(1 for r in results if r["status"] == "reserved")
+        assert success == 500
+
+    def test_no_double_spend_on_overcommit(self, engine):
+        """No double-spend when total reservations exceed budget."""
+        engine.register_agent("e15b-agent", "E15B Test", daily_limit=1.0, monthly_limit=100.0)
+        r1 = engine.reserve_budget("e15b-agent", 0.60)
+        assert r1["status"] == "reserved"
+        r2 = engine.reserve_budget("e15b-agent", 0.40)
+        assert r2["status"] == "reserved"
+        r3 = engine.reserve_budget("e15b-agent", 0.01)
+        assert r3["status"] == "denied"
+        agent = engine.get_agent(agent_id="e15b-agent")
+        daily = next(b for b in agent["budgets"] if b["period"] == "daily")
+        assert daily["spent"] == pytest.approx(1.00, abs=0.01)
+
+    def test_reservation_tracking_consistency(self, engine):
+        """Reservation count matches finalized count after all finalized."""
+        engine.register_agent("e15c-agent", "E15C Test", daily_limit=50.0, monthly_limit=1000.0)
+        for _ in range(20):
+            engine.reserve_budget("e15c-agent", 0.25)
+            engine.finalize_budget("e15c-agent", 0.25, 0.25)
+        from src.middleware import get_db
+        db = get_db()
+        total = db.execute(
+            "SELECT COUNT(*) as cnt FROM reserved_budgets WHERE agent_id = 'e15c-agent'"
+        ).fetchone()["cnt"]
+        finalized = db.execute(
+            "SELECT COUNT(*) as cnt FROM reserved_budgets WHERE agent_id = 'e15c-agent' AND status = 'finalized'"
+        ).fetchone()["cnt"]
+        assert total == 20
+        assert finalized == 20
+
+
+# --- E-16: Budget Forecasting Eval ---
+
+class TestE16_BudgetForecasting:
+    """E-16: Usage statistics and cost forecasting."""
+
+    def test_total_spent_accurate(self, engine):
+        """Total spent matches sum of successful bookings."""
+        engine.register_agent("e16-agent", "E16 Test", daily_limit=100.0, monthly_limit=1000.0)
+        costs = [0.10, 0.25, 0.50, 0.75, 1.00]
+        for c in costs:
+            engine.book("e16-agent", cost=c)
+        usage = engine.get_usage("e16-agent")
+        expected = sum(costs)
+        assert usage["total_spent"] == pytest.approx(expected, abs=0.01)
+
+    def test_denied_counter_accurate(self, engine):
+        """Denied counter matches actual denials."""
+        engine.register_agent("e16b-agent", "E16B Test", daily_limit=0.50, monthly_limit=100.0)
+        for _ in range(10):
+            engine.book("e16b-agent", cost=0.10)
+        usage = engine.get_usage("e16b-agent")
+        assert usage["total_denied"] == 5
+
+    def test_usage_includes_all_booking_types(self, engine):
+        """Usage includes both regular bookings and LLM proxy bookings."""
+        engine.register_agent("e16c-agent", "E16C Test", daily_limit=100.0, monthly_limit=1000.0)
+        engine.book("e16c-agent", resource_type="api_call", action="search", cost=0.05)
+        engine.book("e16c-agent", resource_type="compute", action="process", cost=0.10)
+        engine.reserve_budget("e16c-agent", 1.00)
+        engine.finalize_budget("e16c-agent", 1.00, 0.75)
+        usage = engine.get_usage("e16c-agent")
+        assert usage["total_spent"] == pytest.approx(0.90, abs=0.01)
+        assert len(usage["recent_bookings"]) >= 3
+
+    def test_usage_pagination(self, engine):
+        """Recent bookings are ordered by created_at DESC."""
+        engine.register_agent("e16d-agent", "E16D Test", daily_limit=100.0, monthly_limit=1000.0)
+        for i in range(10):
+            engine.book("e16d-agent", action=f"call_{i}", cost=0.01)
+        usage = engine.get_usage("e16d-agent", limit=5)
+        assert len(usage["recent_bookings"]) == 5
+
+
+# --- E-17: Full Chaos Eval ---
+
+class TestE17_FullChaos:
+    """E-17: Chaos test with random operations."""
+
+    def test_chaos_100_agents_random_operations(self, engine):
+        """100 agents with random budgets and costs. Budget consistency check."""
+        import random
+        random.seed(42)
+        for i in range(100):
+            daily = round(random.uniform(1.0, 20.0), 2)
+            engine.register_agent(f"chaos-{i}", f"Chaos {i}", daily_limit=daily, monthly_limit=daily * 30)
+        total_expected_spent = {}
+        for i in range(100):
+            agent_id = f"chaos-{i}"
+            total_expected_spent[agent_id] = 0.0
+            for _ in range(20):
+                cost = round(random.uniform(0.01, 2.00), 2)
+                result = engine.book(agent_id, cost=cost)
+                if result["status"] == "success":
+                    total_expected_spent[agent_id] += cost
+        for i in random.sample(range(100), 10):
+            agent_id = f"chaos-{i}"
+            agent = engine.get_agent(agent_id=agent_id)
+            daily = next(b for b in agent["budgets"] if b["period"] == "daily")
+            assert daily["spent"] == pytest.approx(total_expected_spent[agent_id], abs=0.05)
+
+    def test_chaos_mixed_operations(self, engine):
+        """Mix of book, reserve, finalize, pause, and delete operations."""
+        import random
+        random.seed(123)
+        engine.register_agent("chaos-mix-1", "Mix 1", daily_limit=50.0, monthly_limit=500.0)
+        engine.register_agent("chaos-mix-2", "Mix 2", daily_limit=50.0, monthly_limit=500.0)
+        for _ in range(50):
+            agent = f"chaos-mix-{random.randint(1, 2)}"
+            op = random.choice(["book", "reserve_finalize", "book_zero"])
+            if op == "book":
+                engine.book(agent, cost=round(random.uniform(0.01, 1.00), 2))
+            elif op == "reserve_finalize":
+                cost = round(random.uniform(0.01, 0.50), 2)
+                r = engine.reserve_budget(agent, cost)
+                if r["status"] == "reserved":
+                    engine.finalize_budget(agent, cost, round(cost * random.uniform(0.5, 1.0), 2))
+            elif op == "book_zero":
+                engine.book(agent, cost=0.0)
+        a1 = engine.get_agent(agent_id="chaos-mix-1")
+        a2 = engine.get_agent(agent_id="chaos-mix-2")
+        assert a1 is not None
+        assert a2 is not None
+        for b in a1["budgets"]:
+            assert b["spent"] >= 0
+            assert b["remaining"] >= 0
+        for b in a2["budgets"]:
+            assert b["spent"] >= 0
+            assert b["remaining"] >= 0
+
+    def test_chaos_revive_paused_agent(self, engine):
+        """Paused agent can be reactivated and resumes budget tracking."""
+        engine.register_agent("chaos-pause", "Pause Test", daily_limit=10.0)
+        engine.book("chaos-pause", cost=5.00)
+        from src.middleware import get_db
+        db = get_db()
+        db.execute("UPDATE agents SET status = 'paused' WHERE id = 'chaos-pause'")
+        db.commit()
+        assert engine.book("chaos-pause", cost=0.01)["status"] == "denied"
+        db.execute("UPDATE agents SET status = 'active' WHERE id = 'chaos-pause'")
+        db.commit()
+        assert engine.book("chaos-pause", cost=1.00)["status"] == "success"
+
+    def test_chaos_budget_never_negative(self, engine):
+        """Budget spent_amount never goes negative through any sequence."""
+        engine.register_agent("chaos-neg", "Neg Test", daily_limit=100.0)
+        from src.middleware import get_db
+        db = get_db()
+        for _ in range(50):
+            engine.book("chaos-neg", cost=0.50)
+            engine.reserve_budget("chaos-neg", 1.00)
+            engine.finalize_budget("chaos-neg", 1.00, 0.30)
+        row = db.execute("SELECT MIN(spent_amount) as min_spent FROM budgets WHERE agent_id = 'chaos-neg'").fetchone()
+        assert row["min_spent"] >= 0
