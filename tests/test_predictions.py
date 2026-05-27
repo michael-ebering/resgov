@@ -52,7 +52,7 @@ def setup_agent_and_bookings(engine: BudgetEngine, agent_id, daily_limit, monthl
     for i in range(num_bookings):
         booking_time = current_time + timedelta(seconds=i)
         engine.book(agent_id=agent_id, cost=cost_per_booking, metadata={"timestamp": booking_time.isoformat()})
-        time.sleep(0.1)
+        time.sleep(1)
 
 
 # --- Test Cases for BudgetEngine.get_budget_prediction ---
