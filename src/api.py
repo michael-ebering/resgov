@@ -54,9 +54,14 @@ _metrics = {
 
 # --- App Lifespan ---
 
+import httpx
+
+_httpx_client: Optional[httpx.AsyncClient] = None
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize and cleanup."""
+    global _httpx_client
     db_path = os.environ.get("RESGOV_DB_PATH", "/data/resgov.db")
     os.makedirs(os.path.dirname(db_path) if os.path.dirname(db_path) else ".", exist_ok=True)
 
@@ -72,6 +77,9 @@ async def lifespan(app: FastAPI):
     # Start scheduler
     start_scheduler()
 
+    # Init shared httpx client for connection pooling
+    _httpx_client = httpx.AsyncClient(timeout=120.0)
+
     logger.info(f"ResGov started | DB: {db_path}")
     yield
 
@@ -79,6 +87,9 @@ async def lifespan(app: FastAPI):
     stop_scheduler()
     pool = _pool
     pool.close_all()
+    if _httpx_client:
+        await _httpx_client.aclose()
+        _httpx_client = None
     logger.info("ResGov shutdown complete")
 
 # --- App ---
@@ -132,12 +143,6 @@ async def get_agent(agent_id: str, owner=Depends(require_api_key)):
     if not agent:
         raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found.")
     return agent
-
-@app.get("/api/v1/agents")
-async def list_agents(org_id: Optional[str] = None, owner=Depends(require_api_key)):
-    """List all active agents."""
-    engine = BudgetEngine()
-    return engine.list_agents(org_id=org_id)
 
 @app.put("/api/v1/agents/{agent_id}/budget")
 async def update_budget(agent_id: str, req: BudgetUpdate, owner=Depends(require_api_key)):
@@ -415,9 +420,6 @@ async def llm_proxy(
         "Content-Type": "application/json",
     }
 
-    import httpx
-    client = httpx.AsyncClient(timeout=120.0)
-
     if is_stream:
         # Streaming: forward chunks, track usage, finalize after stream
         actual_tokens = 0
@@ -425,7 +427,7 @@ async def llm_proxy(
         async def stream_with_finalization():
             nonlocal actual_tokens
             try:
-                async with client.stream("POST", upstream_url, json=body, headers=headers) as resp:
+                async with _httpx_client.stream("POST", upstream_url, json=body, headers=headers) as resp:
                     async for chunk in resp.aiter_bytes():
                         usage = _extract_usage_from_chunk(chunk)
                         if usage:
@@ -433,9 +435,15 @@ async def llm_proxy(
                         yield chunk
             finally:
                 # Phase 3: Finalize budget
+                # Streaming backends rarely send usage in chunks — fallback to max_tokens
+                if actual_tokens == 0:
+                    actual_tokens = max_tokens
                 actual_cost = round(actual_tokens * price_table.get(model, price_table["default"])["output"], 6)
-                engine.finalize_budget(x_resgov_agent_id, reserved_cost, actual_cost)
-                await client.aclose()
+                # finalize is fire-and-forget — never let it break the response
+                try:
+                    engine.finalize_budget(x_resgov_agent_id, reserved_cost, actual_cost)
+                except Exception as finalize_err:
+                    logger.error(f"finalize_budget failed after stream: {finalize_err}")
 
         return StreamingResponse(
             stream_with_finalization(),
@@ -448,7 +456,7 @@ async def llm_proxy(
     else:
         # Non-streaming: simple forward + finalize
         try:
-            resp = await client.post(upstream_url, json=body, headers=headers)
+            resp = await _httpx_client.post(upstream_url, json=body, headers=headers)
             resp_data = resp.json()
 
             # Extract usage
@@ -461,11 +469,12 @@ async def llm_proxy(
 
             return JSONResponse(content=resp_data)
         except Exception as e:
-            # Refund on error
-            engine.finalize_budget(x_resgov_agent_id, reserved_cost, 0)
+            # Refund on error — finalize is fire-and-forget, never block the 502 response
+            try:
+                engine.finalize_budget(x_resgov_agent_id, reserved_cost, 0)
+            except Exception as finalize_err:
+                logger.error(f"finalize_budget failed during error refund: {finalize_err}")
             raise HTTPException(status_code=502, detail=f"Upstream error: {str(e)}")
-        finally:
-            await client.aclose()
 
 # --- Dashboard (Basic Auth) ---
 

@@ -477,19 +477,21 @@ class BudgetEngine:
                     (max_cost, now, budget["id"]),
                 )
 
-            db.execute(
+            cursor = db.execute(
                 """INSERT INTO bookings (agent_id, resource_type, action, cost, metadata, status, created_at)
-                   VALUES (?, 'llm_call', 'proxy_reserve', ?, '{}', 'reserved', ?)""",
+                   VALUES (?, 'llm_call', 'proxy_reserve', ?, '{}', 'reserved', ?)
+                   RETURNING id""",
                 (agent_id, max_cost, now),
             )
+            booking_id = cursor.fetchone()[0]
 
             # Track reservation for crash recovery (5-minute expiry)
             from datetime import timedelta
             expires = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
             db.execute(
                 """INSERT INTO reserved_budgets (agent_id, reserved_cost, booking_id, expires_at)
-                   VALUES (?, ?, last_insert_rowid(), ?)""",
-                (agent_id, max_cost, expires),
+                   VALUES (?, ?, ?, ?)""",
+                (agent_id, max_cost, booking_id, expires),
             )
 
             remaining_budgets = []
