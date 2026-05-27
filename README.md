@@ -3,8 +3,8 @@
 <img src="https://img.shields.io/badge/Python-3.12+-blue?logo=python&logoColor=white" alt="Python">
 <img src="https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white" alt="FastAPI">
 <img src="https://img.shields.io/badge/SQLite-WAL_Mode-003B57?logo=sqlite&logoColor=white" alt="SQLite">
-<img src="https://img.shields.io/badge/Docker-✓-2496ED?logo=docker&logoColor=white" alt="Docker">
-<img src="https://img.shields.io/badge/Tests-44/44_passing-success" alt="Tests">
+<img src="https://img.shields.io/badge/Docker-OK-2496ED?logo=docker&logoColor=white" alt="Docker">
+<img src="https://github.com/michael-ebering/resgov/actions/workflows/ci.yml/badge.svg" alt="CI Build Status">
 <img src="https://img.shields.io/badge/License-BSL_1.1-orange" alt="License">
 <a href="https://github.com/michael-ebering/resgov/stargazers"><img src="https://img.shields.io/github/stars/michael-ebering/resgov?style=social" alt="Stars"></a>
 
