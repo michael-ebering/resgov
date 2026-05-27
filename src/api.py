@@ -225,6 +225,20 @@ async def get_audit(
     engine = BudgetEngine(rgf_config=RGF_CONFIG)
     return engine.get_audit_log(org_id=org_id, page=page, page_size=page_size)
 
+@app.get("/api/v1/agents/{agent_id}/prediction")
+async def get_prediction(
+    agent_id: str,
+    period: str = Query(default="daily", pattern="^(daily|monthly)$"),
+    lookback_hours: int = Query(default=6, ge=1, le=24 * 7),
+    owner=Depends(require_api_key),
+):
+    """Get budget exhaustion prediction for an agent."""
+    engine = BudgetEngine(rgf_config=RGF_CONFIG)
+    prediction = engine.get_budget_prediction(agent_id, period, lookback_hours)
+    if prediction["status"] == "error":
+        raise HTTPException(status_code=404, detail=prediction["message"])
+    return prediction
+
 @app.get("/api/v1/user/keys")
 async def list_user_api_keys(owner_info=Depends(require_api_key)):
     """List API keys belonging to the authenticated user's organization."""
