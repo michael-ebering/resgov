@@ -44,6 +44,7 @@ ResGov is the industry's first open solution for the RGF layer.
 - **Governance as Code (`.rgf`):** Define limits, allowed models, and tools via a dead-simple configuration file straight inside your Git repo.
 - **Non-LLM Resource Booking (`/api/v1/book`):** A unified control plane to throttle and audit paid web-scrapers, search APIs, or file operations.
 - **Multi-Tenant Isolation:** Real-world ready with organization-scoping and secure row-level data isolation.
+- **Predictive Budget Forecasting:** Proactively avert cost overruns with AI-powered spend predictions.
 
 ---
 
@@ -68,6 +69,30 @@ daily_budget = 1.00
 allowed_models = ["gpt-4o-mini"]
 allowed_tools = ["web-scraper", "pexels_search"]
 ```
+
+
+## 📝 Predictive Budget Forecasting
+
+ResGov utilizes historical spend patterns to predict when an agent is likely to exhaust its budget. This gives you time to intervene *before* an overrun occurs, enabling true proactive cost management. 
+
+Query the prediction API:
+```http
+GET /api/v1/agents/my-agent-01/prediction?period=daily&lookback_hours=6
+```
+
+Example Response:
+```json
+{
+  "status": "ok",
+  "message": "Prediction successful.",
+  "remaining_budget": 42.15,
+  "rate_usd_per_hour": 1.75,
+  "prediction_timestamp": "2026-05-29T14:30:00Z",
+  "remaining_time_seconds": 86400.0
+}
+```
+
+---
 
 ## 🚀 Quick Start
 
@@ -173,7 +198,7 @@ GET    /metrics                      → Native Prometheus metrics scraper
 ### v0.5 (Next)
 *   [ ] Redis/Dragonfly Backend for horizontal multi-instance proxy scaling.
 *   [ ] Out-of-the-box Slack & Discord alert layout engines.
-*   [ ] Predictive budget forecasting (spend-velocity heuristics).
+*   [x] Predictive budget forecasting (spend-velocity heuristics).
 
 ### v0.6
 *   [ ] Open Policy Agent (OPA) declarative engine integration.
