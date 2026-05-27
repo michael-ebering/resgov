@@ -28,16 +28,20 @@ def fixture_budget_engine(db_connection):
     init_db(db_connection)
     return BudgetEngine(rgf_config=RGF_CONFIG, db=db_connection)
 
-# Fixture for FastAPI TestClient
+    # Fixture for FastAPI TestClient
 @pytest.fixture(name="test_client")
 def fixture_test_client(db_connection):
+    # Set admin token for testing admin endpoints
+    os.environ["RESGOV_ADMIN_TOKEN"] = "test_admin_token"
     # Override get_db for testing to use in-memory db
     from src.middleware import get_db as original_get_db
     def override_get_db():
         return db_connection
     app.dependency_overrides[original_get_db] = override_get_db
-    yield TestClient(app)
+    with TestClient(app) as client:
+        yield client
     app.dependency_overrides = {} # Clear overrides
+    del os.environ["RESGOV_ADMIN_TOKEN"] # Clean up env var
 
 # Helper function to create an agent and make bookings
 def setup_agent_and_bookings(engine: BudgetEngine, agent_id, daily_limit, monthly_limit, num_bookings, cost_per_booking, start_time_offset_seconds=0):
@@ -131,7 +135,7 @@ class TestPredictionAPI:
         # Generate a dummy API key for testing
         api_key_data = {"owner": "test", "name": "test-key", "scopes": "read,write", "org_id": "default"}
         response_key = test_client.post("/api/v1/admin/generate-key", 
-                                       headers={"X-Admin-Token": os.environ.get("RESGOV_ADMIN_TOKEN", "secure_admin_token")},
+                                       headers={"X-Admin-Token": "test_admin_token"},
                                        json=api_key_data)
         assert response_key.status_code == 200
         api_key = response_key.json()["api_key"]
@@ -151,7 +155,7 @@ class TestPredictionAPI:
     def test_api_prediction_agent_not_found(self, test_client, db_connection):
         api_key_data = {"owner": "test", "name": "test-key", "scopes": "read,write", "org_id": "default"}
         response_key = test_client.post("/api/v1/admin/generate-key", 
-                                       headers={"X-Admin-Token": os.environ.get("RESGOV_ADMIN_TOKEN", "secure_admin_token")},
+                                       headers={"X-Admin-Token": "test_admin_token"},
                                        json=api_key_data)
         assert response_key.status_code == 200
         api_key = response_key.json()["api_key"]
