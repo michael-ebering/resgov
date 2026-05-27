@@ -34,7 +34,7 @@ class AgentRegister(BaseModel):
 
 class BookingRequest(BaseModel):
     agent_id: str = Field(..., min_length=1, max_length=128)
-    resource_type: str = Field(default="api_call", pattern="^(api_call|compute|storage|custom)$")
+    resource_type: str = Field(default="api_call", pattern="^(api_call|compute|storage|custom|llm_call)$")
     action: str = Field(default="execute", max_length=256)
     cost: float = Field(default=0.0, ge=0)
     metadata: Optional[dict] = Field(default=None)
