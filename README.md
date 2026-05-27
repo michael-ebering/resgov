@@ -10,10 +10,12 @@
 
 # **ResGov**
 
-### Resource Governance for AI Agents
+### Resource Governance Framework (RGF) for Multi-Agent Environments
 
 **The missing layer between your agents and your budget.**
 _STOP letting AI agents burn through your API keys in an uncontrolled manner._
+
+ResGov is the Resource Governance Framework (RGF) for Multi-Agent environments — a lightweight proxy layer between your agents and your API budget. It implements MCP and A2A to prevent cost explosion through real-time quota enforcement, per-agent budget tracking, and streaming cost governance.
 
 📡 [Live Demo](https://resgov.silentops.cloud) · [Quick Start](#-quick-start) · [Architecture](#-architecture) · [API](#-api-reference)
 
@@ -63,11 +65,18 @@ That last piece? Doesn't exist. Until now.
 | **Dark-Mode Dashboard** (real-time monitoring) | ✅ |
 | **Soft-Delete Agents** (keep historical data) | ✅ |
 | **Graceful Shutdown** (Docker / K8s ready) | ✅ |
-| **LangChain / CrewAI** integration examples | ✅ |
-| **Redis Backend** (multi-instance scaling) | 🔜 |
-| **Slack / Discord Alerts** | 🔜 |
-| **Terraform Provider** | 🔜 |
-| **Policy Engine** (OPA integration) | 🔜 |
+|| **LangChain / CrewAI** integration examples | ✅ |
+|| **Auto Budget Reset** (daily/monthly scheduler) | ✅ |
+|| **DB-Backed API Key Management** (CRUD, revoke, expiry) | ✅ |
+|| **Webhook HMAC-SHA256 Signatures** | ✅ |
+|| **Dashboard Basic Auth** | ✅ |
+|| **Crash Recovery** (auto-finalize expired reservations) | ✅ |
+|| **WAL Backup Script** (automated SQLite backups) | ✅ |
+|| **Health Endpoint v2** (DB + scheduler status) | ✅ |
+|| **Redis Backend** (multi-instance scaling) | 🔜 |
+|| **Slack / Discord Alerts** | 🔜 |
+|| **Terraform Provider** | 🔜 |
+|| **Policy Engine** (OPA integration) | 🔜 |
 
 ---
 
