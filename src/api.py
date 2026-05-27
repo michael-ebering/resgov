@@ -1,0 +1,424 @@
+"""
+ResGov — FastAPI REST API v3
+Auth, rate limiting, CORS, Prometheus metrics, LLM proxy, graceful shutdown.
+"""
+import os
+import logging
+import json
+import math
+from typing import Optional
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, HTTPException, Query, Depends, Header, Request
+from fastapi.responses import HTMLResponse, JSONResponse, Response
+from starlette.responses import StreamingResponse
+from pydantic import BaseModel, Field
+
+from .models import init_db, reset_daily_budgets, reset_monthly_budgets
+from .engine import BudgetEngine
+from .auth import verify_api_key, verify_admin_token, generate_api_key, API_KEYS, ADMIN_TOKEN
+from .middleware import setup_cors, RateLimitMiddleware, RequestLoggingMiddleware, ConnectionPool, logger
+
+# --- Pydantic Models ---
+
+class AgentRegister(BaseModel):
+    agent_id: str = Field(..., min_length=1, max_length=128)
+    name: str = Field(..., min_length=1, max_length=256)
+    org_id: str = Field(default="default", max_length=128)
+    description: str = Field(default="", max_length=1024)
+    daily_limit: float = Field(default=5.0, gt=0)
+    monthly_limit: float = Field(default=100.0, gt=0)
+
+class BookingRequest(BaseModel):
+    agent_id: str = Field(..., min_length=1, max_length=128)
+    resource_type: str = Field(default="api_call", pattern="^(api_call|compute|storage|custom)$")
+    action: str = Field(default="execute", max_length=256)
+    cost: float = Field(default=0.0, ge=0)
+    metadata: Optional[dict] = Field(default=None)
+
+class BudgetUpdate(BaseModel):
+    period: str = Field(..., pattern="^(daily|monthly|total)$")
+    limit_amount: float = Field(..., gt=0)
+
+# --- Metrics (simple in-memory, Prometheus-compatible) ---
+
+_metrics = {
+    "requests_total": 0,
+    "bookings_total": 0,
+    "bookings_denied_total": 0,
+    "errors_total": 0,
+}
+
+# --- App Lifespan ---
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize and cleanup."""
+    db_path = os.environ.get("RESGOV_DB_PATH", "/data/resgov.db")
+    os.makedirs(os.path.dirname(db_path) if os.path.dirname(db_path) else ".", exist_ok=True)
+
+    # Init connection pool (sets DB path for thread-local connections)
+    _pool = ConnectionPool(db_path)
+
+    # Init DB
+    from .middleware import get_db
+    db = get_db()
+    init_db(db)
+
+    logger.info(f"ResGov started | DB: {db_path} | API keys: {len(API_KEYS) or 'DEV MODE'}")
+    yield
+
+    # Cleanup
+    pool = _pool
+    pool.close_all()
+    logger.info("ResGov shutdown complete")
+
+# --- App ---
+
+app = FastAPI(
+    title="ResGov",
+    description="Resource Governance for AI Agents — LLM Proxy + Budget Control",
+    version="0.3.0",
+    lifespan=lifespan,
+)
+
+# Middleware (order matters: outermost first)
+setup_cors(app)
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(RateLimitMiddleware)
+
+# --- Dependencies ---
+
+async def require_api_key(x_api_key: Optional[str] = Header(None, alias="X-API-Key")):
+    return verify_api_key(x_api_key)
+
+async def require_admin(x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    verify_admin_token(x_admin_token)
+
+# --- API Endpoints ---
+
+@app.post("/api/v1/agents", status_code=201)
+async def register_agent(req: AgentRegister, owner=Depends(require_api_key)):
+    """Register a new agent with budgets."""
+    engine = BudgetEngine()
+    try:
+        agent = engine.register_agent(
+            agent_id=req.agent_id,
+            name=req.name,
+            org_id=req.org_id,
+            description=req.description,
+            daily_limit=req.daily_limit,
+            monthly_limit=req.monthly_limit,
+        )
+        return agent
+    except Exception as e:
+        if "UNIQUE constraint" in str(e):
+            raise HTTPException(status_code=409, detail=f"Agent '{req.agent_id}' already exists.")
+        raise
+
+@app.get("/api/v1/agents/{agent_id}")
+async def get_agent(agent_id: str, owner=Depends(require_api_key)):
+    """Get agent status and budget."""
+    engine = BudgetEngine()
+    agent = engine.get_agent(agent_id=agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found.")
+    return agent
+
+@app.get("/api/v1/agents")
+async def list_agents(org_id: Optional[str] = None, owner=Depends(require_api_key)):
+    """List all active agents."""
+    engine = BudgetEngine()
+    return engine.list_agents(org_id=org_id)
+
+@app.put("/api/v1/agents/{agent_id}/budget")
+async def update_budget(agent_id: str, req: BudgetUpdate, owner=Depends(require_api_key)):
+    """Update an agent's budget."""
+    engine = BudgetEngine()
+    agent = engine.get_agent(agent_id=agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found.")
+    return engine.set_budget(agent_id, req.period, req.limit_amount)
+
+@app.delete("/api/v1/agents/{agent_id}")
+async def delete_agent(agent_id: str, owner=Depends(require_api_key)):
+    """Soft-delete an agent (revoke access, keep audit trail)."""
+    engine = BudgetEngine()
+    agent = engine.get_agent(agent_id=agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found.")
+    return engine.delete_agent(agent_id)
+
+@app.post("/api/v1/book")
+async def book_resource(req: BookingRequest, owner=Depends(require_api_key)):
+    """
+    Book a resource for an agent.
+    Returns 200 if approved, 403 if denied.
+    """
+    _metrics["requests_total"] += 1
+    engine = BudgetEngine()
+    result = engine.book(
+        agent_id=req.agent_id,
+        resource_type=req.resource_type,
+        action=req.action,
+        cost=req.cost,
+        metadata=req.metadata,
+    )
+
+    if result["status"] == "success":
+        _metrics["bookings_total"] += 1
+    else:
+        _metrics["bookings_denied_total"] += 1
+
+    if result["status"] == "denied":
+        return JSONResponse(status_code=403, content=result)
+    return result
+
+@app.get("/api/v1/usage/{agent_id}")
+async def get_usage(
+    agent_id: str,
+    limit: int = Query(default=100, ge=1, le=1000),
+    owner=Depends(require_api_key),
+):
+    """Get usage statistics for an agent."""
+    engine = BudgetEngine()
+    usage = engine.get_usage(agent_id, limit=limit)
+    if "error" in usage:
+        raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found.")
+    return usage
+
+@app.get("/api/v1/audit")
+async def get_audit(
+    org_id: Optional[str] = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=100, ge=1, le=500),
+    owner=Depends(require_api_key),
+):
+    """Get paginated audit trail."""
+    engine = BudgetEngine()
+    return engine.get_audit_log(org_id=org_id, page=page, page_size=page_size)
+
+# --- Admin Endpoints (require admin token) ---
+
+@app.post("/api/v1/admin/reset-daily")
+async def reset_daily(_=Depends(require_admin)):
+    """Reset all daily budgets."""
+    reset_daily_budgets()
+    return {"status": "ok", "message": "Daily budgets reset."}
+
+@app.post("/api/v1/admin/reset-monthly")
+async def reset_monthly(_=Depends(require_admin)):
+    """Reset all monthly budgets."""
+    reset_monthly_budgets()
+    return {"status": "ok", "message": "Monthly budgets reset."}
+
+@app.post("/api/v1/admin/generate-key")
+async def gen_key(_=Depends(require_admin)):
+    """Generate a new API key."""
+    new_key = generate_api_key()
+    return {"api_key": new_key, "hint": "Add to RESGOV_API_KEYS env var"}
+
+# --- Health & Metrics ---
+
+@app.get("/health")
+async def health():
+    """Health check."""
+    return {"status": "ok", "service": "resgov", "version": "0.3.0"}
+
+@app.get("/metrics")
+async def metrics():
+    """Prometheus-compatible metrics."""
+    lines = [
+        "# HELP resgov_requests_total Total API requests",
+        "# TYPE resgov_requests_total counter",
+        f'resgov_requests_total {_metrics["requests_total"]}',
+        "# HELP resgov_bookings_total Total successful bookings",
+        "# TYPE resgov_bookings_total counter",
+        f'resgov_bookings_total {_metrics["bookings_total"]}',
+        "# HELP resgov_bookings_denied_total Total denied bookings",
+        "# TYPE resgov_bookings_denied_total counter",
+        f'resgov_bookings_denied_total {_metrics["bookings_denied_total"]}',
+    ]
+    return Response(content="\n".join(lines), media_type="text/plain")
+
+# --- LLM Proxy (OpenAI/Anthropic compatible) ---
+
+# Price table: cost per token for known models
+# Override via RESGOV_PRICE_TABLE env var (JSON)
+DEFAULT_PRICE_TABLE = {
+    "openai/gpt-4o": {"input": 0.0000025, "output": 0.000010},
+    "openai/gpt-4o-mini": {"input": 0.00000015, "output": 0.0000006},
+    "openai/gpt-3.5-turbo": {"input": 0.0000005, "output": 0.0000015},
+    "anthropic/claude-sonnet-4": {"input": 0.000003, "output": 0.000015},
+    "anthropic/claude-haiku-4": {"input": 0.00000025, "output": 0.00000125},
+    "deepseek/deepseek-v4-flash": {"input": 0.00000007, "output": 0.00000027},
+    "deepseek/deepseek-chat": {"input": 0.00000027, "output": 0.0000011},
+    "google/gemini-2.5-flash": {"input": 0.0000001, "output": 0.0000004},
+    "google/gemini-2.5-pro": {"input": 0.00000125, "output": 0.000010},
+    "default": {"input": 0.000001, "output": 0.000003},
+}
+
+def _get_price_table() -> dict:
+    """Load price table from env or use default."""
+    raw = os.environ.get("RESGOV_PRICE_TABLE", "")
+    if raw:
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            pass
+    return DEFAULT_PRICE_TABLE
+
+def _estimate_max_cost(model: str, max_tokens: int, price_table: dict) -> float:
+    """Estimate worst-case cost for a request."""
+    pricing = price_table.get(model, price_table.get("default", {"input": 0.000001, "output": 0.000003}))
+    # Worst case: all tokens are output (most expensive)
+    return round(max_tokens * pricing["output"], 6)
+
+def _extract_usage_from_chunk(chunk: bytes) -> dict:
+    """Try to extract token usage from a streaming chunk."""
+    try:
+        text = chunk.decode("utf-8", errors="ignore")
+        # OpenAI streaming format: data: {...}
+        for line in text.split("\n"):
+            line = line.strip()
+            if line.startswith("data: ") and line != "data: [DONE]":
+                data = json.loads(line[6:])
+                usage = data.get("usage", {})
+                if usage:
+                    return usage
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        pass
+    return {}
+
+@app.post("/v1/chat/completions")
+async def llm_proxy(
+    request: Request,
+    x_resgov_agent_id: Optional[str] = Header(None, alias="X-ResGov-Agent-ID"),
+    owner=Depends(require_api_key),
+):
+    """
+    OpenAI-compatible LLM proxy with budget governance.
+
+    Usage:
+        Set base_url to http://localhost:8080/v1
+        Add header: X-ResGov-Agent-ID: your-agent-id
+
+    Flow:
+        1. Reserve budget (pessimistic max_cost estimate)
+        2. Forward request to upstream LLM provider
+        3. Stream response back to client
+        4. Finalize budget with actual token usage
+    """
+    if not x_resgov_agent_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing X-ResGov-Agent-ID header. Set your agent ID to enable budget tracking.",
+        )
+
+    # Parse request body
+    body = await request.json()
+    model = body.get("model", "default")
+    max_tokens = body.get("max_tokens", 2048)
+    is_stream = body.get("stream", False)
+
+    # Calculate max cost for reservation
+    price_table = _get_price_table()
+    max_cost = _estimate_max_cost(model, max_tokens, price_table)
+
+    # Phase 1: Reserve budget (milliseconds lock)
+    engine = BudgetEngine()
+    reservation = engine.reserve_budget(x_resgov_agent_id, max_cost)
+
+    if reservation["status"] == "denied":
+        _metrics["bookings_denied_total"] += 1
+        return JSONResponse(
+            status_code=403,
+            content={
+                "error": {
+                    "type": "budget_exceeded",
+                    "message": reservation["message"],
+                    "agent_id": x_resgov_agent_id,
+                    "reason": reservation["reason"],
+                }
+            },
+        )
+
+    reserved_cost = reservation["reserved_cost"]
+
+    # Phase 2: Forward to upstream provider
+    upstream_url = os.environ.get("RESGOV_UPSTREAM_URL", "https://openrouter.ai/api/v1/chat/completions")
+    upstream_key = os.environ.get("RESGOV_UPSTREAM_API_KEY", "")
+
+    if not upstream_key:
+        raise HTTPException(
+            status_code=500,
+            detail="RESGOV_UPSTREAM_API_KEY not configured. Set your OpenRouter/AI provider API key.",
+        )
+
+    headers = {
+        "Authorization": f"Bearer {upstream_key}",
+        "Content-Type": "application/json",
+    }
+
+    import httpx
+    client = httpx.AsyncClient(timeout=120.0)
+
+    if is_stream:
+        # Streaming: forward chunks, track usage, finalize after stream
+        actual_tokens = 0
+
+        async def stream_with_finalization():
+            nonlocal actual_tokens
+            try:
+                async with client.stream("POST", upstream_url, json=body, headers=headers) as resp:
+                    async for chunk in resp.aiter_bytes():
+                        usage = _extract_usage_from_chunk(chunk)
+                        if usage:
+                            actual_tokens = usage.get("total_tokens", 0)
+                        yield chunk
+            finally:
+                # Phase 3: Finalize budget
+                actual_cost = round(actual_tokens * price_table.get(model, price_table["default"])["output"], 6)
+                engine.finalize_budget(x_resgov_agent_id, reserved_cost, actual_cost)
+                await client.aclose()
+
+        return StreamingResponse(
+            stream_with_finalization(),
+            media_type="text/event-stream",
+            headers={
+                "X-ResGov-Agent-ID": x_resgov_agent_id,
+                "X-ResGov-Reserved": str(reserved_cost),
+            },
+        )
+    else:
+        # Non-streaming: simple forward + finalize
+        try:
+            resp = await client.post(upstream_url, json=body, headers=headers)
+            resp_data = resp.json()
+
+            # Extract usage
+            usage = resp_data.get("usage", {})
+            actual_tokens = usage.get("total_tokens", max_tokens)
+            actual_cost = round(actual_tokens * price_table.get(model, price_table["default"])["output"], 6)
+
+            # Phase 3: Finalize
+            engine.finalize_budget(x_resgov_agent_id, reserved_cost, actual_cost)
+
+            return JSONResponse(content=resp_data)
+        except Exception as e:
+            # Refund on error
+            engine.finalize_budget(x_resgov_agent_id, reserved_cost, 0)
+            raise HTTPException(status_code=502, detail=f"Upstream error: {str(e)}")
+        finally:
+            await client.aclose()
+
+# --- Dashboard (Basic Auth) ---
+
+@app.get("/dash", response_class=HTMLResponse)
+async def dashboard():
+    """Serve the monitoring dashboard."""
+    dash_path = os.path.join(os.path.dirname(__file__), "..", "dash", "index.html")
+    if os.path.exists(dash_path):
+        with open(dash_path) as f:
+            return f.read()
+    return "<h1>ResGov Dashboard</h1><p>Dashboard not built yet.</p>"

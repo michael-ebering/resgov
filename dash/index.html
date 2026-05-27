@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ResGov — Dashboard</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;background:#0f0f14;color:#e4e4e7;padding:2rem;min-height:100vh}
+h1{font-size:1.6rem;margin-bottom:0.2rem;color:#f4f4f5}
+.subtitle{color:#71717a;font-size:0.85rem;margin-bottom:2rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1.5rem;margin-bottom:2rem}
+.card{background:#18181b;border:1px solid #27272a;border-radius:8px;padding:1.5rem}
+.card h2{font-size:0.9rem;color:#a1a1aa;margin-bottom:1rem;text-transform:uppercase;letter-spacing:0.05em}
+.metric{display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0;border-bottom:1px solid #27272a}
+.metric:last-child{border-bottom:none}
+.metric-label{font-size:0.85rem;color:#a1a1aa}
+.metric-value{font-size:1.1rem;font-weight:600;color:#f4f4f5}
+.metric-value.ok{color:#4ade80}
+.metric-value.warn{color:#fbbf24}
+.metric-value.danger{color:#f87171}
+.agent-row{display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0;border-bottom:1px solid #27272a;font-size:0.85rem}
+.agent-row:last-child{border-bottom:none}
+.agent-name{color:#e4e4e7}
+.agent-bar{width:120px;height:8px;background:#27272a;border-radius:4px;overflow:hidden}
+.agent-bar-fill{height:100%;border-radius:4px;transition:width 0.3s}
+.agent-bar-fill.ok{background:#4ade80}
+.agent-bar-fill.warn{background:#fbbf24}
+.agent-bar-fill.danger{background:#f87171}
+.badge{display:inline-block;padding:0.15rem 0.5rem;border-radius:4px;font-size:0.7rem;font-weight:600;text-transform:uppercase}
+.badge-success{background:#14532d;color:#4ade80}
+.badge-danger{background:#7f1d1d;color:#f87171}
+.badge-paused{background:#713f12;color:#fbbf24}
+table{width:100%;border-collapse:collapse;font-size:0.8rem}
+th{text-align:left;padding:0.5rem;color:#71717a;font-weight:500;border-bottom:1px solid #27272a}
+td{padding:0.5rem;border-bottom:1px solid #1f1f23;color:#a1a1aa}
+tr:hover td{background:#1f1f23}
+.refresh-btn{background:#27272a;border:1px solid #3f3f46;color:#e4e4e7;padding:0.5rem 1rem;border-radius:6px;cursor:pointer;font-size:0.85rem;margin-bottom:1rem}
+.refresh-btn:hover{background:#3f3f46}
+</style>
+</head>
+<body>
+
+<h1>ResGov</h1>
+<p class="subtitle">Resource Governance for AI Agents — <span id="lastUpdate">Loading...</span></p>
+
+<button class="refresh-btn" onclick="loadAll()">⟳ Refresh</button>
+
+<div class="grid" id="statsGrid">
+    <div class="card">
+        <h2>Overview</h2>
+        <div class="metric"><span class="metric-label">Total Agents</span><span class="metric-value" id="totalAgents">—</span></div>
+        <div class="metric"><span class="metric-label">Active</span><span class="metric-value ok" id="activeAgents">—</span></div>
+        <div class="metric"><span class="metric-label">Total Spend</span><span class="metric-value" id="totalSpend">—</span></div>
+        <div class="metric"><span class="metric-label">Denied Calls</span><span class="metric-value warn" id="totalDenied">—</span></div>
+    </div>
+    <div class="card">
+        <h2>Agents</h2>
+        <div id="agentList">Loading...</div>
+    </div>
+    <div class="card">
+        <h2>Recent Bookings</h2>
+        <div id="recentBookings">Loading...</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Audit Trail</h2>
+    <table>
+    <thead><tr><th>Time</th><th>Agent</th><th>Action</th><th>Cost</th><th>Status</th></tr></thead>
+    <tbody id="auditBody"><tr><td colspan="5">Loading...</td></tr>
+    </table>
+</div>
+
+<script>
+const BASE = window.location.origin + '/api/v1';
+
+async function loadAll() {
+    document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+    await Promise.all([loadStats(), loadAgents(), loadBookings(), loadAudit()]);
+}
+
+async function loadStats() {
+    try {
+        const agents = await fetch(BASE + '/agents').then(r => r.json());
+        document.getElementById('totalAgents').textContent = agents.length;
+        document.getElementById('activeAgents').textContent = agents.filter(a => a.status === 'active').length;
+        
+        let totalSpend = 0, totalDenied = 0;
+        for (const a of agents) {
+            const usage = await fetch(BASE + '/usage/' + a.id).then(r => r.json());
+            totalSpend += usage.total_spent || 0;
+            totalDenied += usage.total_denied || 0;
+        }
+        document.getElementById('totalSpend').textContent = '$' + totalSpend.toFixed(2);
+        document.getElementById('totalDenied').textContent = totalDenied;
+    } catch(e) { console.error('Stats error:', e); }
+}
+
+async function loadAgents() {
+    try {
+        const agents = await fetch(BASE + '/agents').then(r => r.json());
+        const el = document.getElementById('agentList');
+        if (!agents.length) { el.innerHTML = '<p style="color:#71717a">No agents registered</p>'; return; }
+        el.innerHTML = agents.map(a => {
+            const daily = a.budgets.find(b => b.period === 'daily');
+            const pct = daily ? Math.min(100, (daily.spent / daily.limit * 100)) : 0;
+            const cls = pct > 80 ? 'danger' : pct > 50 ? 'warn' : 'ok';
+            const badge = a.status === 'active' ? '<span class="badge badge-success">active</span>' : '<span class="badge badge-paused">' + a.status + '</span>';
+            return `<div class="agent-row">
+                <span class="agent-name">${a.name} ${badge}</span>
+                <div style="display:flex;align-items:center;gap:0.5rem">
+                    <div class="agent-bar"><div class="agent-bar-fill ${cls}" style="width:${pct}%"></div></div>
+                    <span style="font-size:0.75rem;color:#71717a">$${daily ? daily.spent.toFixed(2) : '0'} / $${daily ? daily.limit.toFixed(2) : '—'}</span>
+                </div>
+            </div>`;
+        }).join('');
+    } catch(e) { console.error('Agents error:', e); }
+}
+
+async function loadBookings() {
+    try {
+        const audit = await fetch(BASE + '/audit?limit=10').then(r => r.json());
+        const el = document.getElementById('recentBookings');
+        if (!audit.length) { el.innerHTML = '<p style="color:#71717a">No bookings yet</p>'; return; }
+        el.innerHTML = audit.slice(0, 8).map(b => {
+            const status = b.status === 'success' ? '<span class="badge badge-success">ok</span>' : '<span class="badge badge-danger">denied</span>';
+            return `<div class="agent-row">
+                <span class="agent-name">${b.agent_id}</span>
+                <span>$${b.cost.toFixed(4)} ${status}</span>
+            </div>`;
+        }).join('');
+    } catch(e) { console.error('Bookings error:', e); }
+}
+
+async function loadAudit() {
+    try {
+        const audit = await fetch(BASE + '/audit?limit=50').then(r => r.json());
+        const el = document.getElementById('auditBody');
+        if (!audit.length) { el.innerHTML = '<tr><td colspan="5">No entries</td></tr>'; return; }
+        el.innerHTML = audit.map(b => {
+            const t = b.created_at ? b.created_at.replace('T',' ').substring(0,19) : '—';
+            const status = b.status === 'success' ? '<span class="badge badge-success">success</span>' : '<span class="badge badge-danger" title="' + (b.denial_reason||'') + '">denied</span>';
+            return `<tr><td>${t}</td><td>${b.agent_id}</td><td>${b.action}</td><td>$${b.cost.toFixed(4)}</td><td>${status}</td></tr>`;
+        }).join('');
+    } catch(e) { console.error('Audit error:', e); }
+}
+
+loadAll();
+setInterval(loadAll, 30000);
+</script>
+</body>
+</html>
