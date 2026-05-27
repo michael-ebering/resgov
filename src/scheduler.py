@@ -32,31 +32,33 @@ def _reset_monthly():
 def _expire_reserved():
     """Auto-finalize expired reservations (crash recovery)."""
     from .engine import BudgetEngine
-    from .middleware import get_db
+    from .middleware import get_db, get_transaction
     from datetime import datetime, timezone
 
-    db = get_db()
     now = datetime.now(timezone.utc).isoformat()
-
-    expired = db.execute(
-        "SELECT * FROM reserved_budgets WHERE status = 'active' AND expires_at < ?",
-        (now,),
-    ).fetchall()
-
     engine = BudgetEngine()
-    for res in expired:
-        try:
-            engine.finalize_budget(res["agent_id"], res["reserved_cost"], 0.0)
-            db.execute(
-                "UPDATE reserved_budgets SET status = 'expired' WHERE id = ?",
-                (res["id"],),
-            )
-            logger.info(f"Expired reservation auto-finalized: agent={res['agent_id']}, cost={res['reserved_cost']}")
-        except Exception as e:
-            logger.error(f"Failed to expire reservation {res['id']}: {e}")
 
-    if expired:
-        logger.info(f"Expired {len(expired)} stale reservations")
+    # Find expired reservations within a transaction
+    with get_transaction() as db:
+        expired = db.execute(
+            "SELECT * FROM reserved_budgets WHERE status = 'active' AND expires_at < ?",
+            (now,),
+        ).fetchall()
+
+        for res in expired:
+            try:
+                engine.finalize_budget(res["agent_id"], res["reserved_cost"], 0.0)
+                db.execute(
+                    "UPDATE reserved_budgets SET status = 'expired' WHERE id = ?",
+                    (res["id"],),
+                )
+                logger.info(f"Expired reservation auto-finalized: agent={res['agent_id']}, cost={res['reserved_cost']}")
+            except Exception as e:
+                logger.error(f"Failed to expire reservation {res['id']}: {e}")
+                # Continue with next — single failure shouldn't block others
+
+        if expired:
+            logger.info(f"Expired {len(expired)} stale reservations")
 
 
 def start_scheduler():

@@ -108,16 +108,24 @@ class BudgetEngine:
                 (org_id, org_id),
             )
 
+            # Insert new agent or update metadata WITHOUT resetting status
             db.execute(
-                """INSERT OR REPLACE INTO agents (id, org_id, name, description, status, created_at)
-                   VALUES (?, ?, ?, ?, 'active', ?)""",
+                """INSERT INTO agents (id, org_id, name, description, status, created_at)
+                   VALUES (?, ?, ?, ?, 'active', ?)
+                   ON CONFLICT(id) DO UPDATE SET
+                       org_id = excluded.org_id,
+                       name = excluded.name,
+                       description = excluded.description""",
                 (agent_id, org_id, name, description, now),
             )
 
             for period, limit in [("daily", daily_limit), ("monthly", monthly_limit)]:
                 db.execute(
-                    """INSERT OR REPLACE INTO budgets (agent_id, period, limit_amount, spent_amount, updated_at)
-                       VALUES (?, ?, ?, 0.0, ?)""",
+                    """INSERT INTO budgets (agent_id, period, limit_amount, spent_amount, updated_at)
+                       VALUES (?, ?, ?, 0.0, ?)
+                       ON CONFLICT(agent_id, period) DO UPDATE SET
+                           limit_amount = excluded.limit_amount,
+                           updated_at = excluded.updated_at""",
                     (agent_id, period, limit, now),
                 )
 
@@ -530,14 +538,35 @@ class BudgetEngine:
         now = datetime.now(timezone.utc).isoformat()
 
         def _op(db):
+            budgets = db.execute(
+                "SELECT * FROM budgets WHERE agent_id = ?", (agent_id,)
+            ).fetchall()
+            
             if refund != 0:
-                budgets = db.execute(
-                    "SELECT * FROM budgets WHERE agent_id = ?", (agent_id,)
-                ).fetchall()
                 for budget in budgets:
                     db.execute(
                         "UPDATE budgets SET spent_amount = spent_amount - ?, updated_at = ? WHERE id = ?",
                         (refund, now, budget["id"]),
+                    )
+            
+            # Check: actual_cost > reserved_cost can push spent past limit
+            # (underpayment case). Log a warning but still finalize — 
+            # the reserve was a pessimistic underestimate.
+            if actual_cost > reserved_cost:
+                overbudget = []
+                for budget in budgets:
+                    # Re-read after update
+                    current = db.execute(
+                        "SELECT spent_amount, limit_amount, period FROM budgets WHERE id = ?",
+                        (budget["id"],)
+                    ).fetchone()
+                    if current["spent_amount"] > current["limit_amount"]:
+                        overbudget.append(current["period"])
+                if overbudget:
+                    logger.warning(
+                        f"finalize_budget: agent {agent_id} over budget after underpayment "
+                        f"(reserved={reserved_cost}, actual={actual_cost}), "
+                        f"periods={overbudget}"
                     )
 
             db.execute(
@@ -546,9 +575,15 @@ class BudgetEngine:
                 (agent_id, actual_cost, json.dumps({"reserved": reserved_cost, "refund": refund}), now),
             )
 
-            # Close reservation
+            # Close the most recent active reservation for this agent
+            # (specific, not all active ones — prevents race conditions)
             db.execute(
-                "UPDATE reserved_budgets SET status = 'finalized' WHERE agent_id = ? AND status = 'active'",
+                """UPDATE reserved_budgets SET status = 'finalized'
+                   WHERE id = (
+                       SELECT id FROM reserved_budgets
+                       WHERE agent_id = ? AND status = 'active'
+                       ORDER BY created_at DESC LIMIT 1
+                   )""",
                 (agent_id,),
             )
 

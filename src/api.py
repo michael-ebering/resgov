@@ -328,11 +328,19 @@ def _get_price_table() -> dict:
             pass
     return DEFAULT_PRICE_TABLE
 
-def _estimate_max_cost(model: str, max_tokens: int, price_table: dict) -> float:
-    """Estimate worst-case cost for a request."""
+def _estimate_max_cost(model: str, max_tokens: int, price_table: dict,
+                        prompt: Optional[str] = None) -> float:
+    """Estimate worst-case cost for a request.
+    
+    Includes input token estimation from prompt length (rough: 4 chars ≈ 1 token).
+    """
     pricing = price_table.get(model, price_table.get("default", {"input": 0.000001, "output": 0.000003}))
-    # Worst case: all tokens are output (most expensive)
-    return round(max_tokens * pricing["output"], 6)
+    # Estimate input tokens from prompt length
+    input_tokens = len(prompt) // 4 if prompt else 512  # rough estimate
+    # Worst case: all output tokens at max_tokens
+    input_cost = input_tokens * pricing.get("input", 0.000001)
+    output_cost = max_tokens * pricing.get("output", 0.000003)
+    return round(input_cost + output_cost, 6)
 
 def _extract_usage_from_chunk(chunk: bytes) -> dict:
     """Try to extract token usage from a streaming chunk."""
@@ -383,7 +391,11 @@ async def llm_proxy(
 
     # Calculate max cost for reservation
     price_table = _get_price_table()
-    max_cost = _estimate_max_cost(model, max_tokens, price_table)
+    # Extract prompt for cost estimation (first user message)
+    _prompt_text = ""
+    for msg in body.get("messages", []):
+        _prompt_text += msg.get("content", "")
+    max_cost = _estimate_max_cost(model, max_tokens, price_table, _prompt_text if _prompt_text else None)
 
     # Phase 1: Reserve budget (milliseconds lock)
     engine = BudgetEngine()
