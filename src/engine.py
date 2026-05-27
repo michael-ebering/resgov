@@ -476,17 +476,17 @@ class BudgetEngine:
         first_booking_time = datetime.fromisoformat(recent_bookings[-1]["created_at"])
         last_booking_time = datetime.fromisoformat(recent_bookings[0]["created_at"])
         total_cost_in_window = sum(b["cost"] for b in recent_bookings)
-
         time_delta_seconds = (last_booking_time - first_booking_time).total_seconds()
-        if time_delta_seconds <= 0:
-             # Handle cases where all bookings are at the same timestamp or only one booking
-            rate_usd_per_hour = total_cost_in_window / (1/3600) if total_cost_in_window > 0 else 0.0 # Assign a very high rate for single booking to avoid division by zero
+
+        if time_delta_seconds <= 0 or total_cost_in_window <= 0:
+            rate_usd_per_hour = 0.0 # No meaningful rate can be calculated
         else:
             rate_usd_per_hour = total_cost_in_window / (time_delta_seconds / 3600)  # USD per hour
 
         if rate_usd_per_hour <= 0: # If rate is zero or near-zero, budget will likely last until reset
             return {"status": "ok", "message": f"Current {period} budget will last until reset (no significant recent spend).", 
                     "remaining_budget": remaining_budget, "rate_usd_per_hour": 0.0, "prediction_timestamp": None, "remaining_time_seconds": float('inf')}
+
 
         remaining_time_hours = remaining_budget / rate_usd_per_hour
         prediction_timestamp = (datetime.now(timezone.utc) + timedelta(hours=remaining_time_hours)).isoformat()
