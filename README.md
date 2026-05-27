@@ -4,7 +4,7 @@
 <img src="https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white" alt="FastAPI">
 <img src="https://img.shields.io/badge/SQLite-WAL_Mode-003B57?logo=sqlite&logoColor=white" alt="SQLite">
 <img src="https://img.shields.io/badge/Docker-✓-2496ED?logo=docker&logoColor=white" alt="Docker">
-<img src="https://img1.shields.io/badge/Tests-44/44_passing-success" alt="Tests">
+<img src="https://img.shields.io/badge/Tests-44/44_passing-success" alt="Tests">
 <img src="https://img.shields.io/badge/License-BSL_1.1-orange" alt="License">
 <a href="https://github.com/michael-ebering/resgov/stargazers"><img src="https://img.shields.io/github/stars/michael-ebering/resgov?style=social" alt="Stars"></a>
 
@@ -28,7 +28,7 @@ ResGov is a lightweight, ultra-low-latency proxy and governance engine. It compl
 ### The Problem
 Your agents make thousands of autonomous API calls. The moment they get stuck in a recursive loop while you sleep, they generate catastrophic API bills. Modern LLM providers offer billing alerts, but **no real-time, granular execution-level budget enforcement**.
 
-### The Multi-Agent Stack
+<h3>The Multi-Agent Stack</h3>
 - **MCP** (Model Context Protocol) → Defines _how agents talk to tools_.
 - **A2A** (Agent-to-Agent) → Defines _how agents delegate tasks_.
 - **RGF** (Resource Governance Framework) → Defines _how agents **spend your money**_.
@@ -165,7 +165,7 @@ GET    /metrics                      → Native Prometheus metrics scraper
 ```
 
 *   **SQLite WAL Core:** Leverages concurrent reads and serialized fast-writes. Perfect for zero-config single-instance environments and edge infrastructure.
-*   **Pessimistic Stream Reservation:** Solves concurrency double-spending by checking and deducting potential max_cost instantly. The heavy streaming network phase runs completely lock-free.
+*   **Pessimistic Stream Reservation:** Solves concurrency double-spending by checking and deducting potential `max_cost` instantly. The heavy streaming network phase runs completely lock-free.
 *   **Crash Recovery Guard:** Stuck reservations automatically decay and revert after 5 minutes if an agent execution script crashes mid-stream.
 
 ## 🗺️ Roadmap
