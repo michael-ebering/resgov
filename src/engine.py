@@ -8,7 +8,7 @@ import os
 import time
 import logging
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, Dict
 
 from .models import get_db
 from .middleware import get_db as _get_db, get_transaction, close_db
