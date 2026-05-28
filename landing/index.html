@@ -237,10 +237,11 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
     <span class="cta-highlight">✓ No credit card</span>
     <span class="cta-highlight">✓ Docker in 30 seconds</span>
   </div>
-  <form class="cta-form" action="mailto:hello@silentops.cloud?subject=ResGov%20Early%20Access" method="get">
-    <input type="email" placeholder="your@email.com" required>
-    <button type="submit">Join Waitlist</button>
+  <form class="cta-form" id="lead-form" onsubmit="return submitLead()">
+    <input type="email" id="lead-email" placeholder="your@email.com" required>
+    <button type="submit" id="lead-btn">Join Waitlist</button>
   </form>
+  <p id="lead-msg" style="margin-top:1rem;font-size:0.85rem;color:var(--green);display:none"></p>
   <p style="margin-top:1.5rem;font-size:0.8rem;color:var(--muted)">Or: <code>git clone https://github.com/michael-ebering/resgov.git &amp;&amp; docker compose up</code></p>
 </section>
 </main>
@@ -257,5 +258,20 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
   </div>
   <p>RGF v0.4.0 — Resource Governance Framework. Built by SilentOps.</p>
 </footer>
+<script>
+async function submitLead(){
+  var email=document.getElementById('lead-email').value.trim();
+  var btn=document.getElementById('lead-btn');
+  var msg=document.getElementById('lead-msg');
+  btn.disabled=true;btn.textContent='Sending...';
+  try{
+    var r=await fetch('https://api.resgov.silentops.cloud/leads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email})});
+    if(r.ok){msg.textContent='✓ Thanks! We\'ll be in touch.';msg.style.display='block';document.getElementById('lead-email').value='';}
+    else{var d=await r.json();msg.textContent='⚠ '+(d.error||'Something went wrong');msg.style.color='var(--accent)';msg.style.display='block';}
+  }catch(e){msg.textContent='⚠ Network error — please try again.';msg.style.color='var(--accent)';msg.style.display='block';}
+  btn.disabled=false;btn.textContent='Join Waitlist';
+  return false;
+}
+</script>
 </body>
 </html>
