@@ -237,11 +237,11 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
     <span class="cta-highlight">✓ No credit card</span>
     <span class="cta-highlight">✓ Docker in 30 seconds</span>
   </div>
-  <form class="cta-form" id="lead-form" onsubmit="return submitLead()">
+  <form class="cta-form" id="lead-form" novalidate>
     <input type="email" id="lead-email" placeholder="your@email.com" required>
-    <button type="submit" id="lead-btn">Join Waitlist</button>
+    <button type="button" id="lead-btn" onclick="submitLead()">Join Waitlist</button>
   </form>
-  <p id="lead-msg" style="margin-top:1rem;font-size:0.85rem;color:var(--green);display:none"></p>
+  <p id="lead-msg" style="margin-top:1rem;font-size:0.85rem;display:none"></p>
   <p style="margin-top:1.5rem;font-size:0.8rem;color:var(--muted)">Or: <code>git clone https://github.com/michael-ebering/resgov.git &amp;&amp; docker compose up</code></p>
 </section>
 </main>

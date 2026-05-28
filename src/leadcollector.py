@@ -91,7 +91,12 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _cors_headers(self):
-        self.send_header("Access-Control-Allow-Origin", "https://resgov.silentops.cloud")
+        origin = self.headers.get("Origin", "")
+        allowed = {"https://resgov.silentops.cloud", "https://api.resgov.silentops.cloud"}
+        if origin in allowed:
+            self.send_header("Access-Control-Allow-Origin", origin)
+        else:
+            self.send_header("Access-Control-Allow-Origin", "https://resgov.silentops.cloud")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Admin-Token")
 
