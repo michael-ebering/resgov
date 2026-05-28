@@ -796,7 +796,7 @@ class TestE14_HealthEndpoint:
         client = TestClient(app)
         resp = client.get("/health")
         data = resp.json()
-        assert data["version"] == "0.4.0"
+        assert data["version"] == "0.4.4"
         assert data["service"] == "resgov"
 
     def test_health_degraded_on_db_failure(self):
