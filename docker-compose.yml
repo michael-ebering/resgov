@@ -1,10 +1,10 @@
 services:
   resgov:
     build: .
-    container_name: resgov
+    container_name: resgov-api
     restart: unless-stopped
     networks:
-      - bridge
+      - resgov_default
     expose:
       - "8080"
     volumes:
@@ -23,7 +23,7 @@ services:
     container_name: leadcollector
     restart: unless-stopped
     networks:
-      - bridge
+      - resgov_default
     expose:
       - "8090"
     volumes:
@@ -37,3 +37,8 @@ services:
 
 volumes:
   resgov-data:
+
+networks:
+  resgov_default:
+    name: resgov_default
+    external: true
