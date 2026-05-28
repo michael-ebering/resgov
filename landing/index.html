@@ -240,12 +240,18 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
   <form class="cta-form" id="lead-form" novalidate>
     <input type="email" id="lead-email" placeholder="your@email.com" required>
     <button type="button" id="lead-btn" onclick="submitLead()">Join Waitlist</button>
+    <label style="display:flex;align-items:center;gap:0.5rem;margin-top:0.75rem;font-size:0.75rem;color:var(--muted);cursor:pointer">
+      <input type="checkbox" id="privacy-consent" required style="width:auto;margin:0;accent-color:var(--accent)">
+      Ich stimme zu, dass meine E-Mail-Adresse zum Zweck des RGF-Newsletters gespeichert wird.
+      <a href="/datenschutz.html" target="_blank" style="color:var(--accent);text-decoration:underline">Datenschutz</a>
+    </label>
   </form>
   <div id="lead-msg" style="margin-top:1rem;font-size:1rem;display:none;align-items:center;justify-content:center;gap:0.6rem;color:#fff;font-weight:600">
     <span style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;min-width:32px;border-radius:50%;background:#4CAF50;color:#fff;font-size:18px;line-height:1">✓</span>
     <span id="lead-msg-text"></span>
   </div>
-  <p style="margin-top:1.5rem;font-size:0.8rem;color:var(--muted)">Or: <code>git clone https://github.com/michael-ebering/resgov.git &amp;&amp; docker compose up</code></p>
+  <p style="margin-top:1.5rem;font-size:0.75rem;color:var(--muted)">Kein Tracking. Keine Werbe-Mails. Abmeldung jederzeit.</p>
+<p style="margin-top:0.5rem;font-size:0.8rem;color:var(--muted)">Or: <code>git clone https://github.com/michael-ebering/resgov.git &amp;&amp; docker compose up</code></p>
 </section>
 </main>
 
@@ -287,6 +293,11 @@ async function submitLead(){
   const msg=document.getElementById('lead-msg');
   const msgText=document.getElementById('lead-msg-text');
   if(!email)return;
+  if(!document.getElementById('privacy-consent').checked){
+    msgText.textContent='Bitte akzeptiere die Datenschutzerklärung.';
+    msg.style.display='flex';msg.style.color='var(--accent)';
+    return;
+  }
   btn.disabled=true;btn.textContent='Sending...';
   try{
     const r=await fetch('https://api.resgov.silentops.cloud/leads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email})});
