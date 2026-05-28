@@ -5,42 +5,22 @@ HMAC webhooks, crash recovery.
 """
 import os
 import pytest
-import tempfile
-import json
-import hmac
-import hashlib
-
-# Set up test DB before imports
-db_fd, db_path = tempfile.mkstemp(suffix=".db")
-os.close(db_fd)
-
-old_path = os.environ.get("RESGOV_DB_PATH")
-os.environ["RESGOV_DB_PATH"] = db_path
-os.environ["RESGOV_API_KEYS"] = ""  # Dev mode (no auth required)
-os.environ["RESGOV_ADMIN_TOKEN"] = "test-admin-token"
 
 from src.models import init_db
 from src.engine import BudgetEngine
 from src.middleware import ConnectionPool
 from src.auth import init_api_keys_table, create_api_key, revoke_api_key, list_api_keys, verify_api_key, _hash_key
 
-def init_pool(db_path):
-    os.environ["RESGOV_DB_PATH"] = db_path
-
 
 @pytest.fixture(scope="module")
 def engine():
     """Shared engine for all tests in this module."""
-    init_pool(db_path)
     from src.middleware import get_db
     db = get_db()
     init_db(db)
     init_api_keys_table()
     eng = BudgetEngine()
     yield eng
-    # Cleanup
-    import os as _os
-    _os.unlink(db_path)
 
 
 @pytest.fixture
@@ -455,7 +435,6 @@ class TestAPIEndpoints:
     def test_proxy_missing_agent_header(self):
         """Proxy endpoint rejects request without X-ResGov-Agent-ID."""
         os.environ["RESGOV_API_KEYS"] = ""
-        os.environ["RESGOV_DB_PATH"] = db_path
         os.environ["RESGOV_UPSTREAM_API_KEY"] = "test-key-mock"
         os.environ["RESGOV_ADMIN_TOKEN"] = ""  # Dev mode
         from starlette.testclient import TestClient

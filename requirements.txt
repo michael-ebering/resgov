@@ -2,6 +2,7 @@ fastapi>=0.115.0
 uvicorn[standard]>=0.34.0
 pydantic>=2.10.0
 pytest>=8.3.0
+pytest-xdist>=3.6.0
 httpx>=0.28.0
 starlette>=0.44.0
 apscheduler>=3.11.0
