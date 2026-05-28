@@ -181,23 +181,23 @@ GET    /metrics                      → Native Prometheus-Metrics
 ```
 
 ## 🏗️ Architektur & Produktionsdesign
-```
-                    ┌──────────────────────────────────┐
-                    │          RGF Broker              │
-                    └──────────────┬───────────────────┘
-                                   │
-            ┌──────────┬───────────┼───────────┬──────────────┐
-            │          │           │           │              │
-     ┌──────▼────┐ ┌───▼───┐ ┌────▼────┐ ┌───▼─────┐ ┌─────▼──────┐
-     │   Auth    │ │Budget │ │  LLM    │ │Webhooks │ │ Prometheus │
-     │   Layer   │ │Engine │ │  Proxy  │ │Discord/ │ │  /metrics  │
-     │ API Keys  │ │       │ │Reserve  │ │Slack    │ │            │
-     │ Admin Tok │ │       │ │Finalize │ │HMAC     │ │            │
-     └───────────┘ └───┬───┘ └─────────┘ └─────────┘ └────────────┘
-                       │
-                ┌──────▼──────────────┐
-                │    SQLite (WAL)     │
-                └─────────────────────┘
+
+```mermaid
+flowchart TD
+    subgraph RGF["RGF Broker"]
+        direction LR
+        A["Auth Layer\nAPI Keys / Admin Token"]
+        B["Budget Engine"]
+        C["LLM Proxy\nReserve → Stream → Finalize"]
+        D["Webhooks\nDiscord / Slack / HMAC"]
+        E["Prometheus\n/metrics"]
+        B --> C
+    end
+    subgraph Storage["Storage\nSQLite WAL"]
+        F["resgov-db"]
+    end
+    B --> F
+    C --> F
 ```
 
 *   **SQLite-WAL-Core:** Nutzt gleichzeitige Lesevorgänge und serialisierte Schnellschreibvorgänge. Perfekt für Zero-Konfigurations-Einzelinstanzumgebungen und Edge-Infrastruktur.

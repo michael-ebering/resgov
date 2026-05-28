@@ -4,27 +4,13 @@
 
 ## Architecture Overview
 
-```
-                    ┌──────────────┐
-                    │   Internet   │
-                    └──────┬───────┘
-                           │
-                    ┌──────▼───────┐
-                    │   Traefik    │
-                    │  (HTTPS/TLS) │
-                    └──┬───────┬───┘
-                       │       │
-              ┌────────▼──┐ ┌──▼─────────┐
-              │  ResGov    │ │  Lead      │
-              │  Proxy     │ │  Collector │
-              │  :8080     │ │  :8090     │
-              └─────┬──────┘ └─────┬──────┘
-                    │              │
-                    └──────┬───────┘
-                    ┌──────▼───────┐
-                    │  resgov-data │
-                    │  (SQLite WAL)│
-                    └──────────────┘
+```mermaid
+flowchart TD
+    A["Internet"] --> B["Traefik\nHTTPS/TLS"]
+    B --> C["ResGov Proxy\n:8080"]
+    B --> D["Lead Collector\n:8090"]
+    C --> E["resgov-data\nSQLite WAL"]
+    D --> E
 ```
 
 ## Prerequisites
