@@ -38,7 +38,6 @@ def _expire_reserved():
     now = datetime.now(timezone.utc).isoformat()
     engine = BudgetEngine()
 
-    # Find expired reservations within a transaction
     with get_transaction() as db:
         expired = db.execute(
             "SELECT * FROM reserved_budgets WHERE status = 'active' AND expires_at < ?",
@@ -55,10 +54,22 @@ def _expire_reserved():
                 logger.info(f"Expired reservation auto-finalized: agent={res['agent_id']}, cost={res['reserved_cost']}")
             except Exception as e:
                 logger.error(f"Failed to expire reservation {res['id']}: {e}")
-                # Continue with next — single failure shouldn't block others
 
         if expired:
             logger.info(f"Expired {len(expired)} stale reservations")
+
+
+def _refresh_price_cache():
+    """Background job: refresh model prices from OpenRouter."""
+    from .price_cache import refresh_price_cache
+    try:
+        result = refresh_price_cache()
+        if result["status"] == "ok":
+            logger.info(f"Price cache refreshed: {result['updated']} models updated")
+        else:
+            logger.warning("Price cache refresh failed — using cached/hardcoded prices")
+    except Exception as e:
+        logger.error(f"Price cache refresh error: {e}")
 
 
 def start_scheduler():
@@ -86,8 +97,14 @@ def start_scheduler():
         id="expire_reserved",
         name="Auto-finalize expired reservations every 2 minutes",
     )
+    _scheduler.add_job(
+        _refresh_price_cache,
+        trigger="interval", hours=6,
+        id="refresh_price_cache",
+        name="Refresh model price cache from OpenRouter every 6 hours",
+    )
     _scheduler.start()
-    logger.info("Scheduler started → daily@00:00 UTC, monthly@1st@00:00 UTC, expire@2min")
+    logger.info("Scheduler started → daily@00:00 UTC, monthly@1st@00:00 UTC, expire@2min, prices@6h")
 
 
 def stop_scheduler():

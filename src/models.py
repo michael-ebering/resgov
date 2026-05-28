@@ -95,6 +95,14 @@ def init_db(db: Optional[sqlite3.Connection] = None):
         CREATE INDEX IF NOT EXISTS idx_bookings_created_at ON bookings(created_at);
         CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);
         CREATE INDEX IF NOT EXISTS idx_agents_org_id ON agents(org_id);
+
+        -- Price cache for dynamic model pricing
+        CREATE TABLE IF NOT EXISTS price_cache (
+            model TEXT PRIMARY KEY,
+            input_price REAL NOT NULL,
+            output_price REAL NOT NULL,
+            fetched_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
     """)
 
     # Ensure default org exists

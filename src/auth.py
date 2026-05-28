@@ -45,6 +45,7 @@ def init_api_keys_table():
             owner TEXT NOT NULL DEFAULT 'anonymous',
             org_id TEXT NOT NULL DEFAULT 'default',
             name TEXT DEFAULT '',
+            provider TEXT DEFAULT 'all',
             is_active INTEGER NOT NULL DEFAULT 1,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             expires_at TEXT,
@@ -54,6 +55,11 @@ def init_api_keys_table():
     db.execute("""
         CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash)
     """)
+    # Migration: add provider column if not exists (SQLite >= 3.2.0)
+    try:
+        db.execute("ALTER TABLE api_keys ADD COLUMN provider TEXT DEFAULT 'all'")
+    except Exception:
+        pass  # Column already exists
     db.commit()
 
     # Migrate legacy ENV keys into DB
@@ -78,10 +84,14 @@ def init_api_keys_table():
         db.commit()
 
 
-def verify_api_key(api_key: Optional[str] = None) -> dict:
+def verify_api_key(api_key: Optional[str] = None, provider: str = "all") -> dict:
     """
     Verify an API key. Returns dict with owner, org_id, scopes.
-    Raises 401 if invalid.
+
+    Args:
+        api_key: The API key from X-API-Key header
+        provider: The provider being accessed (e.g., "openai", "anthropic").
+                  Keys with provider="all" or matching provider are accepted.
     """
     # Dev mode: no admin token, no keys in DB → allow all
     if not _get_admin_token() and not _has_any_keys():
@@ -100,6 +110,14 @@ def verify_api_key(api_key: Optional[str] = None) -> dict:
     if not row:
         raise HTTPException(status_code=401, detail="Invalid API key")
 
+    # Check provider scoping
+    key_provider = row["provider"] or "all"
+    if key_provider != "all" and key_provider != provider:
+        raise HTTPException(
+            status_code=403,
+            detail=f"API key not authorized for provider '{provider}'. Key is scoped to '{key_provider}'."
+        )
+
     # Check expiry
     if row["expires_at"]:
         from datetime import datetime, timezone
@@ -114,6 +132,7 @@ def verify_api_key(api_key: Optional[str] = None) -> dict:
         "owner": row["owner"],
         "org_id": row["org_id"],
         "scopes": row["scopes"] or "read,write",
+        "provider": key_provider,
     }
 
 
@@ -150,17 +169,20 @@ def generate_api_key() -> str:
 
 def create_api_key(owner: str = "anonymous", org_id: str = "default",
                    name: str = "", scopes: str = "read,write",
-                   expires_at: Optional[str] = None) -> str:
+                   provider: str = "all", expires_at: Optional[str] = None) -> str:
     """
     Create a new API key in the database.
+
+    Args:
+        provider: "all" for universal key, or specific provider prefix ("openai", "anthropic", etc.)
     Returns the plaintext key (shown only once).
     """
     key = generate_api_key()
     key_hash = _hash_key(key)
     db = _get_db()
     db.execute(
-        "INSERT INTO api_keys (key_hash, owner, org_id, name, scopes, expires_at) VALUES (?, ?, ?, ?, ?, ?)",
-        (key_hash, owner, org_id, name, scopes, expires_at),
+        "INSERT INTO api_keys (key_hash, owner, org_id, name, provider, scopes, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (key_hash, owner, org_id, name, provider, scopes, expires_at),
     )
     db.commit()
     return key

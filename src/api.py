@@ -294,6 +294,24 @@ async def revoke_key(key_id: int, _=Depends(require_admin)):
         return {"status": "ok", "message": f"Key {key_id} revoked."}
     raise HTTPException(status_code=404, detail=f"Key {key_id} not found.")
 
+
+@app.get("/api/v1/admin/price-cache")
+async def get_price_cache_status(_=Depends(require_admin)):
+    """Get current price cache status."""
+    from .models import get_db
+    db = get_db()
+    count = db.execute("SELECT COUNT(*) as cnt FROM price_cache").fetchone()["cnt"]
+    latest = db.execute("SELECT MAX(fetched_at) as latest FROM price_cache").fetchone()["latest"]
+    return {"model_count": count, "last_fetched": latest or "never"}
+
+@app.post("/api/v1/admin/price-cache/refresh")
+async def trigger_price_cache_refresh(_=Depends(require_admin)):
+    """Manually trigger a price cache refresh."""
+    from .price_cache import refresh_price_cache
+    result = refresh_price_cache()
+    return result
+
+
 # --- Health & Metrics ---
 
 @app.get("/health")
@@ -358,13 +376,25 @@ DEFAULT_PRICE_TABLE = {
 }
 
 def _get_price_table() -> dict:
-    """Load price table from env or use default."""
+    """Load price table with priority: ENV override > DB cache > DEFAULT_PRICE_TABLE."""
+    # 1. ENV override (highest priority)
     raw = os.environ.get("RESGOV_PRICE_TABLE", "")
     if raw:
         try:
             return json.loads(raw)
         except json.JSONDecodeError:
             pass
+
+    # 2. DB price cache
+    try:
+        from .price_cache import _get_merged_price_table
+        cached = _get_merged_price_table()
+        if cached:
+            return cached
+    except Exception:
+        pass
+
+    # 3. Hardcoded fallback
     return DEFAULT_PRICE_TABLE
 
 def _estimate_input_tokens(messages: list) -> int:
