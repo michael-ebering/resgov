@@ -8,9 +8,7 @@
 <img src="https://img.shields.io/badge/License-BSL_1.1-orange" alt="License">
 <a href="https://github.com/michael-ebering/resgov/stargazers"><img src="https://img.shields.io/github/stars/michael-ebering/resgov?style=social" alt="Stars"></a>
 
-# **ResGov**
-
-### The Resource Governance Framework (RGF) for Multi-Agent Environments
+# The Resource Governance Framework (RGF) for Multi-Agent Environments
 
 **The missing circuit breaker between your autonomous agents and your credit card.**
 _STOP letting runaway agent loops burn through your API budgets overnight._

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>ResGov — Resource Governance Framework (RGF) for AI Agents</title>
+<meta name="description" content="ResGov is the Resource Governance Framework (RGF) for Multi-Agent environments — an OpenAI-compatible LLM proxy with per-agent budget control, predictive forecasting, crash recovery, and audit trails. Stop API cost explosions.">
+<meta name="keywords" content="RGF, Resource Governance Framework, AI agent, budget control, LLM proxy, OpenAI API, cost tracking, resource governance, API quota, multi-agent, MCP, A2A, predictive forecasting">
+<meta property="og:title" content="ResGov — Resource Governance Framework (RGF)">
+<meta property="og:description" content="The missing layer between your agents and your budget. OpenAI-compatible LLM proxy with budget enforcement, predictive forecasting, crash recovery, and Governance as Code.">
+<meta property="og:url" content="https://resgov.silentops.cloud">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://resgov.silentops.cloud/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="ResGov — Resource Governance Framework (RGF)">
+<meta name="twitter:description" content="OpenAI-compatible LLM proxy with per-agent budget control, predictive forecasting, and Governance as Code.">
+<link rel="canonical" href="https://resgov.silentops.cloud">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "ResGov",
+  "alternateName": "RGF",
+  "applicationCategory": "DeveloperTool",
+  "operatingSystem": "Linux, Docker",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "description": "ResGov is the Resource Governance Framework (RGF) for Multi-Agent environments — a lightweight proxy layer between your agents and your API budget. Prevents cost explosions through real-time quota enforcement, per-agent budget tracking, predictive forecasting, Governance as Code, and crash recovery.",
+  "url": "https://resgov.silentops.cloud",
+  "codeRepository": "https://github.com/michael-ebering/resgov",
+  "license": "https://github.com/michael-ebering/resgov/blob/main/LICENSE",
+  "featureList": [
+    "OpenAI-Compatible Proxy", "Per-Agent Budgets", "Pre-Commit / Finalize",
+    "Predictive Budget Forecasting", "Governance as Code (.rgf)", "Crash Recovery",
+    "Multi-Tenant Isolation", "Real-Time Dashboard", "Audit Trail", "Webhook Alerts",
+    "HMAC Security", "Prometheus Metrics", "Auto Budget Reset", "API Key Management",
+    "Non-LLM Resource Booking"
+  ],
+  "softwareVersion": "0.4.0"
+}
+</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0f;--card:#111118;--border:#1e1e2a;--text:#e4e4e7;--muted:#71717a;--accent:#f97316;--accent-glow:rgba(249,115,22,0.15);--green:#4ade80;--lila:#b99bff}
+body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+.hero{padding:6rem 2rem 4rem;text-align:center;max-width:900px;margin:0 auto}
+.hero-badge{display:inline-block;background:var(--accent-glow);color:var(--accent);padding:0.35rem 0.85rem;border-radius:999px;font-size:0.75rem;font-weight:600;letter-spacing:0.05em;margin-bottom:1.5rem;border:1px solid rgba(249,115,22,0.2)}
+.hero h1{font-size:clamp(2rem,5vw,3.2rem);font-weight:800;line-height:1.15;margin-bottom:1.2rem;background:linear-gradient(135deg,#fff 0%,#a1a1aa 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero p{font-size:1.15rem;color:var(--muted);max-width:640px;margin:0 auto 2rem}
+.hero-buttons{display:flex;gap:1rem;justify-content:center;flex-wrap:wrap}
+.btn{display:inline-block;padding:0.75rem 1.75rem;border-radius:8px;font-weight:600;font-size:0.95rem;cursor:pointer;transition:all 0.2s;border:none}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:#ea580c;text-decoration:none;transform:translateY(-1px)}
+.btn-secondary{background:var(--card);color:var(--text);border:1px solid var(--border)}.btn-secondary:hover{background:var(--border);text-decoration:none}
+.terminal{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.5rem;max-width:700px;margin:3rem auto 0;text-align:left;font-family:'JetBrains Mono','Fira Code',monospace;font-size:0.85rem;overflow-x:auto}
+.terminal-line{color:var(--muted);margin-bottom:0.3rem}
+.terminal-line .prompt{color:var(--green);margin-right:0.5rem}
+.terminal-line .cmd{color:var(--text)}
+.terminal-line .output{color:var(--muted);padding-left:1.5rem}
+.features{max-width:1100px;margin:0 auto;padding:4rem 2rem}
+.features h2{text-align:center;font-size:1.8rem;margin-bottom:0.5rem}
+.features-sub{color:var(--muted);text-align:center;margin-bottom:2.5rem;font-size:0.95rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1.5rem}
+.feature{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1.5rem}
+.feature-icon{font-size:1.5rem;margin-bottom:0.75rem}
+.feature h3{font-size:1rem;margin-bottom:0.5rem}
+.feature p{font-size:0.85rem;color:var(--muted)}
+.rgf-section{max-width:900px;margin:0 auto;padding:4rem 2rem}
+.rgf-section h2{text-align:center;font-size:1.8rem;margin-bottom:0.5rem}
+.rgf-sub{color:var(--muted);text-align:center;margin-bottom:2.5rem;font-size:0.95rem}
+.rgf-grid{display:grid;grid-template-columns:1fr 1fr;gap:2rem;align-items:start}
+.rgf-explain p{color:var(--muted);font-size:0.9rem;margin-bottom:1rem}
+.rgf-explain ul{list-style:none;padding:0;margin:0}
+.rgf-explain li{color:var(--muted);font-size:0.85rem;padding:0.4rem 0;border-bottom:1px solid var(--border)}
+.rgf-explain li::before{content:"→ ";color:var(--accent)}
+.rgf-code{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1.5rem;font-family:'JetBrains Mono','Fira Code',monospace;font-size:0.8rem;overflow-x:auto}
+.rgf-code .comment{color:var(--muted)}
+.rgf-code .section{color:var(--accent);font-weight:700}
+.rgf-code .key{color:var(--text)}
+.rgf-code .val{color:var(--green)}
+@media(max-width:700px){.rf-grid{grid-template-columns:1fr}}
+.how{max-width:900px;margin:0 auto;padding:4rem 2rem}
+.how h2{text-align:center;font-size:1.8rem;margin-bottom:3rem}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:2rem}
+.step{text-align:center}
+.step-num{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;background:var(--accent-glow);color:var(--accent);font-weight:700;font-size:0.9rem;margin-bottom:1rem}
+.step h3{font-size:1rem;margin-bottom:0.5rem}
+.step p{font-size:0.85rem;color:var(--muted)}
+.frameworks{max-width:900px;margin:0 auto;padding:4rem 2rem;text-align:center}
+.frameworks h2{font-size:1.8rem;margin-bottom:1rem}
+.frameworks p{color:var(--muted);margin-bottom:2rem}
+.framework-logos{display:flex;gap:2rem;justify-content:center;flex-wrap:wrap;align-items:center}
+.framework-logo{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:0.75rem 1.25rem;font-size:0.85rem;font-weight:600;color:var(--muted)}
+.cta{max-width:700px;margin:0 auto;padding:4rem 2rem;text-align:center}
+.cta h2{font-size:1.8rem;margin-bottom:1rem}
+.cta p{color:var(--muted);margin-bottom:2rem}
+.cta-highlights{display:flex;gap:1.5rem;justify-content:center;flex-wrap:wrap;margin-bottom:2rem}
+.cta-highlight{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:0.6rem 1rem;font-size:0.8rem;color:var(--green)}
+.cta-form{display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;max-width:480px;margin:0 auto}
+.cta-form input{flex:1;min-width:220px;padding:0.75rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:0.9rem}
+.cta-form input::placeholder{color:var(--muted)}
+.cta-form button{padding:0.75rem 1.5rem;border-radius:8px;background:var(--accent);color:#fff;border:none;font-weight:600;font-size:0.9rem;cursor:pointer}
+.cta-form button:hover{background:#ea580c}
+.footer{border-top:1px solid var(--border);padding:2rem;text-align:center;font-size:0.8rem;color:var(--muted)}
+.footer a{color:var(--muted)}
+.footer-links{display:flex;gap:1.5rem;justify-content:center;flex-wrap:wrap;margin-bottom:0.5rem}
+code{background:var(--card);border:1px solid var(--border);border-radius:4px;padding:0.15rem 0.4rem;font-size:0.85em}
+</style>
+</head>
+<body>
+
+<main>
+<section class="hero">
+  <div class="hero-badge">v0.4 — Resource Governance Framework (RGF)</div>
+  <h1>Resource Governance<br>for AI Agents</h1>
+  <p>ResGov is the Resource Governance Framework (RGF) for Multi-Agent environments — a lightweight proxy layer between your agents and your budget. OpenAI-compatible, zero custom code, with predictive forecasting, crash recovery, and Governance as Code.</p>
+  <div class="hero-buttons">
+    <a href="https://github.com/michael-ebering/resgov" class="btn btn-primary">Star on GitHub</a>
+    <a href="https://api.resgov.silentops.cloud/docs" class="btn btn-secondary">API Docs</a>
+  </div>
+  <div class="terminal">
+    <div class="terminal-line"><span class="prompt">$</span><span class="cmd">pip install openai</span></div>
+    <div class="terminal-line"><span class="prompt">$</span><span class="cmd">export OPENAI_BASE_URL="https://api.resgov.silentops.cloud/v1"</span></div>
+    <div class="terminal-line output">Budget checked. Stream started. Tokens tracked.</div>
+  </div>
+</section>
+
+<section class="features">
+  <h2>What ResGov Does</h2>
+  <p class="features-sub">The complete governance layer for autonomous AI agents — budgets, forecasting, crash recovery, and audit.</p>
+  <div class="grid">
+    <div class="feature">
+      <div class="feature-icon">🔌</div>
+      <h3>OpenAI-Compatible Proxy</h3>
+      <p>Drop-in replacement for <code>api.openai.com</code>. Change <code>base_url</code> only. Streaming and function calling fully supported. Works with LangChain, CrewAI, OpenAI SDK, Anthropic SDK.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">💰</div>
+      <h3>Per-Agent Budgets</h3>
+      <p>Daily, monthly, and total spending limits per agent. Hard deny with clear reasons when limits exceeded — zero upstream costs on denial. Multi-tenant isolation with org-scoping.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">⚡</div>
+      <h3>Pre-Commit / Finalize</h3>
+      <p>Reserves pessimistic max cost at stream start (milliseconds lock), refunds difference after completion. No long-held DB locks. No deadlocks under concurrent load.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">📈</div>
+      <h3>Predictive Budget Forecasting</h3>
+      <p>Proactively predict when an agent will exhaust its budget based on real spend velocity. Get remaining budget, rate per hour, and estimated time-to-exhaustion — <em>before</em> overruns happen.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">🛡️</div>
+      <h3>Crash Recovery</h3>
+      <p>Stuck reservations automatically decay and revert after 5 minutes if an agent crashes mid-stream. Your budget is never orphaned by zombie processes. Self-healing by design.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">📊</div>
+      <h3>Real-Time Dashboard</h3>
+      <p>Dark-mode monitoring at <code>/dash</code> — live budget bars, recent bookings, denial counters. Auth-protected. Native Prometheus <code>/metrics</code> endpoint for Grafana.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">🔍</div>
+      <h3>Audit Trail + Webhooks</h3>
+      <p>Every request logged with agent, cost, status, timestamp. Paginated API for compliance. HMAC-signed webhook notifications on budget events, denials, and resets.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">🔄</div>
+      <h3>Book Any Resource</h3>
+      <p>Non-LLM API calls, web scraping, compute, storage — book them via <code>POST /api/v1/book</code>. Same budget enforcement, same audit trail. Unified control plane.</p>
+    </div>
+  </div>
+</section>
+
+<section class="rgf-section">
+  <h2>Governance as Code</h2>
+  <p class="rgf-sub">Define budgets, model allowlists, and tool policies in a single <code>.rgf</code> file in your repo. No dashboards, no wizards. Just declarative config, in Git.</p>
+  <div class="rgf-grid">
+    <div class="rgf-explain">
+      <p><strong>Why .rgf?</strong> ResGov reads a TOML-based config file at startup. All agent budgets, model restrictions, and fail-safe rules live in one file — version-controlled, reviewable, deployable with your stack.</p>
+      <ul>
+        <li>Set per-agent daily &amp; monthly limits</li>
+        <li>Restrict allowed models per agent</li>
+        <li>Declare permitted tools and APIs</li>
+        <li>Configure fail-safe action on proxy loss</li>
+        <li>Takes effect on restart — no API call needed</li>
+      </ul>
+    </div>
+    <div class="rgf-code">
+      <span class="comment"># .rgf — Resource Governance Rules</span><br><br>
+      <span class="section">[global]</span><br>
+      <span class="key">currency</span> = <span class="val">"USD"</span><br>
+      <span class="key">fail_safe_action</span> = <span class="val">"deny"</span><br><br>
+      <span class="section">[agents.hermes]</span><br>
+      <span class="key">daily_budget</span> = <span class="val">3.00</span><br>
+      <span class="key">max_tokens_per_request</span> = <span class="val">4096</span><br>
+      <span class="key">allowed_models</span> = <span class="val">[...]</span><br><br>
+      <span class="section">[agents.research-bot]</span><br>
+      <span class="key">daily_budget</span> = <span class="val">1.00</span><br>
+      <span class="key">allowed_tools</span> = <span class="val">[...]</span>
+    </div>
+  </div>
+</section>
+
+<section class="how">
+  <h2>How It Works</h2>
+  <div class="steps">
+    <div class="step"><div class="step-num">1</div><h3>Register Agent</h3><p><code>POST /api/v1/agents</code> — set daily and monthly budgets per agent. Or define them in your <code>.rgf</code> file.</p></div>
+    <div class="step"><div class="step-num">2</div><h3>Proxy Request</h3><p>Agent calls <code>/v1/chat/completions</code> with <code>X-ResGov-Agent-ID</code> header. Zero agent code changes.</p></div>
+    <div class="step"><div class="step-num">3</div><h3>Budget Enforcement</h3><p>Reserve max cost → stream → finalize with actual usage. All in milliseconds. No blocked parallel agents.</p></div>
+    <div class="step"><div class="step-num">4</div><h3>Monitor &amp; Alert</h3><p>Dashboard + audit trail + webhooks + Prometheus + predictive forecasting. Full visibility into every dollar.</p></div>
+  </div>
+</section>
+
+<section class="frameworks">
+  <h2>Works With Your Stack</h2>
+  <p>Any framework that supports custom <code>base_url</code>. Zero agent code changes.</p>
+  <div class="framework-logos">
+    <div class="framework-logo">LangChain</div>
+    <div class="framework-logo">CrewAI</div>
+    <div class="framework-logo">OpenAI SDK</div>
+    <div class="framework-logo">Anthropic SDK</div>
+    <div class="framework-logo">AutoGen</div>
+    <div class="framework-logo">LiteLLM</div>
+  </div>
+  <p style="margin-top:1.5rem;font-size:0.85rem;color:var(--muted)">API running at <code>api.resgov.silentops.cloud</code> · <a href="https://api.resgov.silentops.cloud/docs">Interactive Docs</a> · <a href="https://api.resgov.silentops.cloud/redoc">ReDoc</a></p>
+</section>
+
+<section class="cta">
+  <h2>Get Early Access</h2>
+  <p>ResGov is open source under BSL 1.1 (free for personal use, &lt;$1M ARR). Self-host with Docker, or join the waitlist for managed cloud access.</p>
+  <div class="cta-highlights">
+    <span class="cta-highlight">✓ Free self-hosted</span>
+    <span class="cta-highlight">✓ No credit card</span>
+    <span class="cta-highlight">✓ Docker in 30 seconds</span>
+  </div>
+  <form class="cta-form" action="mailto:hello@silentops.cloud?subject=ResGov%20Early%20Access" method="get">
+    <input type="email" placeholder="your@email.com" required>
+    <button type="submit">Join Waitlist</button>
+  </form>
+  <p style="margin-top:1.5rem;font-size:0.8rem;color:var(--muted)">Or: <code>git clone https://github.com/michael-ebering/resgov.git &amp;&amp; docker compose up</code></p>
+</section>
+</main>
+
+<footer class="footer">
+  <div class="footer-links">
+    <a href="https://github.com/michael-ebering/resgov">GitHub</a>
+    <a href="https://api.resgov.silentops.cloud/docs">API Docs</a>
+    <a href="https://github.com/michael-ebering/resgov/blob/main/LICENSE">BSL 1.1 License</a>
+    <a href="https://silentops.cloud">SilentOps</a>
+  </div>
+  <p>ResGov v0.4.0 — Resource Governance Framework. Built by SilentOps.</p>
+</footer>
+</body>
+</html>
