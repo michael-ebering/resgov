@@ -241,7 +241,10 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
     <input type="email" id="lead-email" placeholder="your@email.com" required>
     <button type="button" id="lead-btn" onclick="submitLead()">Join Waitlist</button>
   </form>
-  <p id="lead-msg" style="margin-top:1rem;font-size:0.85rem;display:none"></p>
+  <div id="lead-msg" style="margin-top:1rem;font-size:0.85rem;display:none;align-items:center;justify-content:center;gap:0.5rem">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#4CAF50"/><path d="M6 10.5l3 3 5-6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span id="lead-msg-text"></span>
+  </div>
   <p style="margin-top:1.5rem;font-size:0.8rem;color:var(--muted)">Or: <code>git clone https://github.com/michael-ebering/resgov.git &amp;&amp; docker compose up</code></p>
 </section>
 </main>
@@ -259,16 +262,49 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
   <p>RGF v0.4.0 — Resource Governance Framework. Built by SilentOps.</p>
 </footer>
 <script>
+function pling(){
+  try{
+    var ctx=new(window.AudioContext||window.webkitAudioContext)();
+    var o=ctx.createOscillator();
+    var g=ctx.createGain();
+    o.type='sine';
+    o.frequency.setValueAtTime(1200,ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(1800,ctx.currentTime+0.08);
+    o.frequency.exponentialRampToValueAtTime(2400,ctx.currentTime+0.15);
+    g.gain.setValueAtTime(0.15,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.4);
+    o.connect(g);g.connect(ctx.destination);
+    o.start();o.stop(ctx.currentTime+0.4);
+  }catch(e){}
+}
 async function submitLead(){
-  var email=document.getElementById('lead-email').value.trim();
-  var btn=document.getElementById('lead-btn');
-  var msg=document.getElementById('lead-msg');
+  const email=document.getElementById('lead-email').value.trim();
+  const btn=document.getElementById('lead-btn');
+  const form=document.getElementById('lead-form');
+  const msg=document.getElementById('lead-msg');
+  const msgText=document.getElementById('lead-msg-text');
+  if(!email)return;
   btn.disabled=true;btn.textContent='Sending...';
   try{
-    var r=await fetch('https://api.resgov.silentops.cloud/leads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email})});
-    if(r.ok){msg.textContent='✓ Thanks! We\'ll be in touch.';msg.style.display='block';document.getElementById('lead-email').value='';}
-    else{var d=await r.json();msg.textContent='⚠ '+(d.error||'Something went wrong');msg.style.color='var(--accent)';msg.style.display='block';}
-  }catch(e){msg.textContent='⚠ Network error — please try again.';msg.style.color='var(--accent)';msg.style.display='block';}
+    const r=await fetch('https://api.resgov.silentops.cloud/leads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email})});
+    if(r.ok){
+      form.style.display='none';
+      msgText.textContent="Thanks! We'll be in touch.";
+      msg.style.display='flex';
+      pling();
+    }else{
+      const d=await r.json();
+      msgText.textContent=(d.error||'Something went wrong');
+      msg.querySelector('svg').style.display='none';
+      msg.style.color='var(--accent)';
+      msg.style.display='flex';
+    }
+  }catch(e){
+    msgText.textContent='Network error — please try again.';
+    msg.querySelector('svg').style.display='none';
+    msg.style.color='var(--accent)';
+    msg.style.display='flex';
+  }
   btn.disabled=false;btn.textContent='Join Waitlist';
   return false;
 }
