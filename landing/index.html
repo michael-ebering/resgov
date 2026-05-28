@@ -3,28 +3,28 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>ResGov — Resource Governance Framework (RGF) for AI Agents</title>
-<meta name="description" content="ResGov is the Resource Governance Framework (RGF) for Multi-Agent environments — an OpenAI-compatible LLM proxy with per-agent budget control, predictive forecasting, crash recovery, and audit trails. Stop API cost explosions.">
+<title>RGF — Resource Governance Framework for AI Agents</title>
+<meta name="description" content="RGF — an OpenAI-compatible LLM proxy with per-agent budget control, predictive forecasting, crash recovery, and audit trails. Stop API cost explosions.">
 <meta name="keywords" content="RGF, Resource Governance Framework, AI agent, budget control, LLM proxy, OpenAI API, cost tracking, resource governance, API quota, multi-agent, MCP, A2A, predictive forecasting">
-<meta property="og:title" content="ResGov — Resource Governance Framework (RGF)">
-<meta property="og:description" content="The missing layer between your agents and your budget. OpenAI-compatible LLM proxy with budget enforcement, predictive forecasting, crash recovery, and Governance as Code.">
+<meta property="og:title" content="RGF — Resource Governance Framework">
+<meta property="og:description" content="The missing layer between your agents and your API budget. OpenAI-compatible LLM proxy with budget enforcement, predictive forecasting, crash recovery, and Governance as Code.">
 <meta property="og:url" content="https://resgov.silentops.cloud">
 <meta property="og:type" content="website">
 <meta property="og:image" content="https://resgov.silentops.cloud/og-image.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="ResGov — Resource Governance Framework (RGF)">
-<meta name="twitter:description" content="OpenAI-compatible LLM proxy with per-agent budget control, predictive forecasting, and Governance as Code.">
+<meta name="twitter:title" content="RGF — Resource Governance Framework">
+<meta name="twitter:description" content="OpenAI-compatible LLM proxy with per-agent budget control, predictive forecasting, Governance as Code, and crash recovery.">
 <link rel="canonical" href="https://resgov.silentops.cloud">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
-  "name": "ResGov",
+  "name": "RGF",
   "alternateName": "RGF",
   "applicationCategory": "DeveloperTool",
   "operatingSystem": "Linux, Docker",
   "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
-  "description": "ResGov is the Resource Governance Framework (RGF) for Multi-Agent environments — a lightweight proxy layer between your agents and your API budget. Prevents cost explosions through real-time quota enforcement, per-agent budget tracking, predictive forecasting, Governance as Code, and crash recovery.",
+  "description": "RGF is the Resource Governance Framework for Multi-Agent environments — a lightweight proxy layer between your agents and your API budget. Prevents cost explosions through real-time quota enforcement, per-agent budget tracking, predictive forecasting, Governance as Code, and crash recovery.",
   "url": "https://resgov.silentops.cloud",
   "codeRepository": "https://github.com/michael-ebering/resgov",
   "license": "https://github.com/michael-ebering/resgov/blob/main/LICENSE",
@@ -40,7 +40,7 @@
 </script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#0a0a0f;--card:#111118;--border:#1e1e2a;--text:#e4e4e7;--muted:#71717a;--accent:#f97316;--accent-glow:rgba(249,115,22,0.15);--green:#4ade80;--lila:#b99bff}
+:root{--bg:#0a0a0f;--card:#15151f;--border:#2a2a3c;--text:#e4e4e7;--muted:#a1a1aa;--accent:#f97316;--accent-glow:rgba(249,115,22,0.15);--green:#4ade80;--lila:#b99bff}
 body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6}
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .hero{padding:6rem 2rem 4rem;text-align:center;max-width:900px;margin:0 auto}
@@ -112,7 +112,7 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
 <section class="hero">
   <div class="hero-badge">v0.4 — Resource Governance Framework (RGF)</div>
   <h1>Resource Governance<br>for AI Agents</h1>
-  <p>ResGov is the Resource Governance Framework (RGF) for Multi-Agent environments — a lightweight proxy layer between your agents and your budget. OpenAI-compatible, zero custom code, with predictive forecasting, crash recovery, and Governance as Code.</p>
+  <p>RGF is the Resource Governance Framework for Multi-Agent environments — a lightweight proxy layer between your agents and your budget. OpenAI-compatible, zero custom code, with predictive forecasting, crash recovery, and Governance as Code.</p>
   <div class="hero-buttons">
     <a href="https://github.com/michael-ebering/resgov" class="btn btn-primary">Star on GitHub</a>
     <a href="https://api.resgov.silentops.cloud/docs" class="btn btn-secondary">API Docs</a>
@@ -125,7 +125,7 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
 </section>
 
 <section class="features">
-  <h2>What ResGov Does</h2>
+  <h2>What RGF Does</h2>
   <p class="features-sub">The complete governance layer for autonomous AI agents — budgets, forecasting, crash recovery, and audit.</p>
   <div class="grid">
     <div class="feature">
@@ -176,7 +176,7 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
   <p class="rgf-sub">Define budgets, model allowlists, and tool policies in a single <code>.rgf</code> file in your repo. No dashboards, no wizards. Just declarative config, in Git.</p>
   <div class="rgf-grid">
     <div class="rgf-explain">
-      <p><strong>Why .rgf?</strong> ResGov reads a TOML-based config file at startup. All agent budgets, model restrictions, and fail-safe rules live in one file — version-controlled, reviewable, deployable with your stack.</p>
+      <p><strong>Why .rgf?</strong> RGF reads a TOML-based config file at startup. All agent budgets, model restrictions, and fail-safe rules live in one file — version-controlled, reviewable, deployable with your stack.</p>
       <ul>
         <li>Set per-agent daily &amp; monthly limits</li>
         <li>Restrict allowed models per agent</li>
@@ -227,7 +227,7 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
 
 <section class="cta">
   <h2>Get Early Access</h2>
-  <p>ResGov is open source under BSL 1.1 (free for personal use, &lt;$1M ARR). Self-host with Docker, or join the waitlist for managed cloud access.</p>
+  <p>RGF is open source under BSL 1.1 (free for personal use, &lt;$1M ARR). Self-host with Docker, or join the waitlist for managed cloud access.</p>
   <div class="cta-highlights">
     <span class="cta-highlight">✓ Free self-hosted</span>
     <span class="cta-highlight">✓ No credit card</span>
@@ -245,10 +245,12 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
   <div class="footer-links">
     <a href="https://github.com/michael-ebering/resgov">GitHub</a>
     <a href="https://api.resgov.silentops.cloud/docs">API Docs</a>
+    <a href="/impressum.html">Impressum</a>
+    <a href="/datenschutz.html">Datenschutz</a>
     <a href="https://github.com/michael-ebering/resgov/blob/main/LICENSE">BSL 1.1 License</a>
     <a href="https://silentops.cloud">SilentOps</a>
   </div>
-  <p>ResGov v0.4.0 — Resource Governance Framework. Built by SilentOps.</p>
+  <p>RGF v0.4.0 — Resource Governance Framework. Built by SilentOps.</p>
 </footer>
 </body>
 </html>
