@@ -3,6 +3,8 @@ services:
     build: .
     container_name: resgov
     restart: unless-stopped
+    networks:
+      - bridge
     expose:
       - "8080"
     volumes:
