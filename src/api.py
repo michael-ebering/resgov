@@ -657,10 +657,10 @@ async def llm_proxy(
 DASH_USER = os.environ.get("RESGOV_DASH_USER", "admin")
 DASH_PASS = os.environ.get("RESGOV_DASH_PASS", "")
 
+
 async def require_dashboard_auth(request: Request):
     """Require Basic Auth for dashboard if DASH_PASS is set."""
     import base64
-    # Read at runtime so tests can override via os.environ
     dash_pass = os.environ.get("RESGOV_DASH_PASS", "")
     dash_user = os.environ.get("RESGOV_DASH_USER", "admin")
     if not dash_pass:
@@ -675,6 +675,99 @@ async def require_dashboard_auth(request: Request):
             raise HTTPException(status_code=401, detail="Invalid credentials")
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid authorization header")
+
+
+# --- Dashboard API ---
+
+@app.get("/dash/api/stats")
+async def dash_stats(request: Request):
+    """Aggregated statistics for the dashboard."""
+    await require_dashboard_auth(request)
+    engine = BudgetEngine(rgf_config=RGF_CONFIG)
+    from .middleware import get_db
+    db = get_db()
+
+    # Agent counts
+    total_agents = db.execute("SELECT COUNT(*) as cnt FROM agents WHERE status != 'revoked'").fetchone()["cnt"]
+    active_agents = db.execute("SELECT COUNT(DISTINCT agent_id) as cnt FROM bookings WHERE created_at > datetime('now', '-1 day')").fetchone()["cnt"]
+
+    # Booking stats
+    total_bookings = db.execute("SELECT COUNT(*) as cnt FROM bookings").fetchone()["cnt"]
+    denied_bookings = db.execute("SELECT COUNT(*) as cnt FROM bookings WHERE status = 'denied'").fetchone()["cnt"]
+
+    # Cost totals
+    total_spent = db.execute("SELECT COALESCE(SUM(cost), 0) as total FROM bookings WHERE status IN ('completed', 'success')").fetchone()["total"]
+    total_reserved = db.execute("SELECT COALESCE(SUM(estimated_cost), 0) as total FROM bookings WHERE status IN ('completed', 'success')").fetchone()["total"]
+
+    # Recent denials (last 24h)
+    recent_denials = db.execute("SELECT COUNT(*) as cnt FROM bookings WHERE status = 'denied' AND created_at > datetime('now', '-1 day')").fetchone()["cnt"]
+
+    return {
+        "agents": {"total": total_agents, "active_24h": active_agents},
+        "bookings": {"total": total_bookings, "denied": denied_bookings, "denied_24h": recent_denials},
+        "costs": {
+            "total_spent": round(total_spent, 4),
+            "total_reserved": round(total_reserved, 4),
+            "total_refunded": round(total_reserved - total_spent, 4),
+        },
+        "metrics": _metrics,
+    }
+
+
+@app.get("/dash/api/agents")
+async def dash_agents(request: Request):
+    """List all agents with budget status for the dashboard."""
+    await require_dashboard_auth(request)
+    from .middleware import get_db
+    db = get_db()
+
+    agents = db.execute("SELECT * FROM agents WHERE status != 'revoked'").fetchall()
+    result = []
+    for agent in agents:
+        budgets = db.execute("SELECT * FROM budgets WHERE agent_id = ?", (agent["id"],)).fetchall()
+        daily = next((b for b in budgets if b["period"] == "daily"), None)
+        monthly = next((b for b in budgets if b["period"] == "monthly"), None)
+        usage = db.execute(
+            "SELECT COALESCE(SUM(cost), 0) as total FROM bookings WHERE agent_id = ? AND status = 'success'",
+            (agent["id"],)
+        ).fetchone()
+
+        agent_data = {
+            "agent_id": agent["id"],
+            "name": agent["name"],
+            "org_id": agent["org_id"] if agent["org_id"] else "default",
+            "daily_limit": daily["limit_amount"] if daily else 0,
+            "daily_remaining": round(daily["limit_amount"] - daily["spent_amount"], 4) if daily else 0,
+            "monthly_limit": monthly["limit_amount"] if monthly else 0,
+            "monthly_remaining": round(monthly["limit_amount"] - monthly["spent_amount"], 4) if monthly else 0,
+            "total_spent": round(usage["total"], 4) if usage else 0,
+            "status": agent["status"] if agent["status"] else "active",
+        }
+        result.append(agent_data)
+    return result
+
+
+@app.get("/dash/api/bookings")
+async def dash_bookings(
+    request: Request,
+    limit: int = Query(default=50, ge=1, le=200),
+    status_filter: Optional[str] = Query(default=None, alias="status"),
+):
+    """Recent bookings for the dashboard."""
+    await require_dashboard_auth(request)
+    from .middleware import get_db
+    db = get_db()
+
+    query = "SELECT * FROM bookings"
+    params = []
+    if status_filter:
+        query += " WHERE status = ?"
+        params.append(status_filter)
+    query += " ORDER BY created_at DESC LIMIT ?"
+    params.append(limit)
+
+    rows = db.execute(query, params).fetchall()
+    return [dict(r) for r in rows]
 
 @app.get("/dash", response_class=HTMLResponse)
 async def dashboard(request: Request):

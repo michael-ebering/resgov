@@ -2,330 +2,199 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ResGov — Dashboard</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>RGF Dashboard — Resource Governance Framework</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Inter',system-ui,sans-serif;background:#0f0f14;color:#e4e4e7;padding:2rem;min-height:100vh}
-h1{font-size:1.6rem;margin-bottom:0.2rem;color:#f4f4f5}
-.subtitle{color:#71717a;font-size:0.85rem;margin-bottom:2rem}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1.5rem;margin-bottom:2rem}
-.card{background:#18181b;border:1px solid #27272a;border-radius:8px;padding:1.5rem}
-.card h2{font-size:0.9rem;color:#a1a1aa;margin-bottom:1rem;text-transform:uppercase;letter-spacing:0.05em}
-.metric{display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0;border-bottom:1px solid #27272a}
-.metric:last-child{border-bottom:none}
-.metric-label{font-size:0.85rem;color:#a1a1aa}
-.metric-value{font-size:1.1rem;font-weight:600;color:#f4f4f5}
-.metric-value.ok{color:#4ade80}
-.metric-value.warn{color:#fbbf24}
-.metric-value.danger{color:#f87171}
-.agent-row{display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0;border-bottom:1px solid #27272a;font-size:0.85rem}
-.agent-row:last-child{border-bottom:none}
-.agent-name{color:#e4e4e7}
-.agent-bar{width:120px;height:8px;background:#27272a;border-radius:4px;overflow:hidden}
-.agent-bar-fill{height:100%;border-radius:4px;transition:width 0.3s}
-.agent-bar-fill.ok{background:#4ade80}
-.agent-bar-fill.warn{background:#fbbf24}
-.agent-bar-fill.danger{background:#f87171}
-.badge{display:inline-block;padding:0.15rem 0.5rem;border-radius:4px;font-size:0.7rem;font-weight:600;text-transform:uppercase}
-.badge-success{background:#14532d;color:#4ade80}
-.badge-danger{background:#7f1d1d;color:#f87171}
-.badge-paused{background:#713f12;color:#fbbf24}
-table{width:100%;border-collapse:collapse;font-size:0.8rem}
-th{text-align:left;padding:0.5rem;color:#71717a;font-weight:500;border-bottom:1px solid #27272a}
-td{padding:0.5rem;border-bottom:1px solid #1f1f23;color:#a1a1aa}
-tr:hover td{background:#1f1f23}
-.refresh-btn{background:#27272a;border:1px solid #3f3f46;color:#e4e4e7;padding:0.5rem 1rem;border-radius:6px;cursor:pointer;font-size:0.85rem;margin-bottom:1rem}
-.refresh-btn:hover{background:#3f3f46}
-.form-group{margin-bottom:1rem}
-.form-group label{display:block;margin-bottom:0.5rem;font-size:0.85rem;color:#a1a1aa}
-.form-group input[type="text"], .form-group input[type="number"]{width:100%;padding:0.5rem;border:1px solid #3f3f46;background:#18181b;color:#e4e4e7;border-radius:4px;font-size:0.9rem}
-.form-group input[type="text"]:focus, .form-group input[type="number"]:focus{outline:none;border-color:#6366f1}
-.btn-primary{background:#6366f1;color:#fff;padding:0.6rem 1.2rem;border:none;border-radius:4px;cursor:pointer;font-size:0.9rem}
-.btn-primary:hover{background:#4f46e5}
-.alert{padding:0.75rem;margin-top:1rem;border-radius:4px;font-size:0.85rem}
-.alert-success{background:#15803d;color:#dcfce7}
-.alert-error{background:#b91c1c;color:#fee2e2}
-.api-key-input-container { margin-bottom: 2rem; display: flex; align-items: center; gap: 0.5rem; }
-.api-key-input-container label { margin-bottom: 0; white-space: nowrap; }
-.api-key-input-container input { flex-grow: 1; }
-.btn-revoke{background:#ef4444;color:#fff;padding:0.3rem 0.6rem;border:none;border-radius:4px;cursor:pointer;font-size:0.75rem}
-.btn-revoke:hover{background:#dc2626}
+:root{--bg:#0a0a0f;--card:#15151f;--border:#2a2a3c;--text:#e4e4e7;--muted:#a1a1aa;--accent:#f97316;--accent-glow:rgba(249,115,22,0.15);--green:#4ade80;--red:#f87171;--lila:#b99bff;--yellow:#fbbf24}
+body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6}
+.header{display:flex;justify-content:space-between;align-items:center;padding:1.25rem 2rem;border-bottom:1px solid var(--border)}
+.header h1{font-size:1.25rem;font-weight:700}
+.header h1 span{color:var(--accent)}
+.header .meta{font-size:0.8rem;color:var(--muted)}
+.container{max-width:1200px;margin:0 auto;padding:2rem}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:2rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1.25rem}
+.card-label{font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem}
+.card-value{font-size:1.75rem;font-weight:700}
+.card-value.green{color:var(--green)}
+.card-value.red{color:var(--red)}
+.card-value.accent{color:(--accent)}
+.card-sub{font-size:0.75rem;color:var(--muted);margin-top:0.25rem}
+.section{margin-bottom:2rem}
+.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem}
+.section h2{font-size:1.1rem;font-weight:600}
+.refresh-badge{font-size:0.7rem;color:(--muted);display:flex;align-items:center;gap:0.4rem}
+.refresh-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:0.85rem}
+th{text-align:left;padding:0.75rem;color:var(--muted);font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid var(--border)}
+td{padding:0.75rem;border-bottom:1px solid rgba(42,42,60,0.5)}
+tr:hover td{background:rgba(249,115,22,0.03)}
+.badge{display:inline-block;padding:0.15rem 0.5rem;border-radius:4px;font-size:0.7rem;font-weight:600}
+.badge-success{background:rgba(74,222,128,0.15);color:var(--green)}
+.badge-danger{background:rgba(248,113,113,0.15);color:var(--red)}
+.badge-warning{background:rgba(251,191,36,0.15);color:var(--yellow)}
+.badge-neutral{background:rgba(161,161,170,0.15);color:var(--muted)}
+.budget-bar{height:6px;border-radius:3px;background:var(--border);overflow:hidden;margin-top:0.3rem}
+.budget-bar-fill{height:100%;border-radius:3px;transition:width 0.5s}
+.budget-bar-fill.green{background:var(--green)}
+.budget-bar-fill.yellow{background:var(--yellow)}
+.budget-bar-fill.red{background:var(--red)}
+.agent-name{font-weight:600}
+.agent-id{font-size:0.75rem;color:var(--muted);font-family:monospace}
+.empty-state{text-align:center;padding:3rem;color:var(--muted);font-size:0.9rem}
+.loading{display:flex;align-items:center;justify-content:center;padding:3rem;color:var(--muted)}
+.loading::after{content:'';width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin-left:0.75rem}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
-
-<h1>ResGov</h1>
-<p class="subtitle">Resource Governance for AI Agents — <span id="lastUpdate">Loading...</span></p>
-
-<div class="api-key-input-container">
-    <label for="apiKey">Your API Key:</label>
-    <input type="text" id="apiKey" placeholder="Enter your X-API-Key" onchange="saveApiKey()">
+<div class="header">
+  <h1><span>RGF</span> Dashboard</h1>
+  <div class="meta">Resource Governance Framework v0.4.0 · <span id="lastUpdate">—</span></div>
 </div>
+<div class="container">
 
-<button class="refresh-btn" onclick="loadAll()">⟳ Refresh</button>
-
-<div class="grid" id="statsGrid">
+  <div class="cards">
     <div class="card">
-        <h2>Overview</h2>
-        <div class="metric"><span class="metric-label">Total Agents</span><span class="metric-value" id="totalAgents">—</span></div>
-        <div class="metric"><span class="metric-label">Active</span><span class="metric-value ok" id="activeAgents">—</span></div>
-        <div class="metric"><span class="metric-label">Total Spend</span><span class="metric-value" id="totalSpend">—</span></div>
-        <div class="metric"><span class="metric-label">Denied Calls</span><span class="metric-value warn" id="totalDenied">—</span></div>
+      <div class="card-label">Total Agents</div>
+      <div class="card-value" id="statAgents">—</div>
+      <div class="card-sub" id="statAgentsActive">— active (24h)</div>
     </div>
     <div class="card">
-        <h2>Agents</h2>
-        <div id="agentList">Loading...</div>
-         <p style="margin-top: 1rem; color:#71717a; font-size: 0.8em">Click agent for details/edit (coming soon)</p>
+      <div class="card-label">Total Bookings</div>
+      <div class="card-value accent" id="statBookings">—</div>
+      <div class="card-sub" id="statBookingsDenied">— denied</div>
     </div>
     <div class="card">
-        <h2>Recent Bookings</h2>
-        <div id="recentBookings">Loading...</div>
+      <div class="card-label">Total Spent</div>
+      <div class="card-value green" id="statSpent">—</div>
+      <div class="card-sub" id="statRefunded">— refunded</div>
     </div>
-</div>
+    <div class="card">
+      <div class="card-label">Denials (24h)</div>
+      <div class="card-value red" id="statDenials24h">—</div>
+      <div class="card-sub">budget exceeded</div>
+    </div>
+  </div>
 
-<div class="card" style="margin-top: 2rem;">
-    <h2>Register New Agent</h2>
-    <form id="registerAgentForm">
-        <div class="form-group">
-            <label for="agentId">Agent ID:</label>
-            <input type="text" id="agentId" name="agent_id" required>
-        </div>
-        <div class="form-group">
-            <label for="agentName">Agent Name:</label>
-            <input type="text" id="agentName" name="name" required>
-        </div>
-        <div class="form-group">
-            <label for="agentDescription">Description:</label>
-            <input type="text" id="agentDescription" name="description">
-        </div>
-        <div class="form-group">
-            <label for="dailyLimit">Daily Limit ($):</label>
-            <input type="number" id="dailyLimit" name="daily_limit" value="5.0" step="0.01" required>
-        </div>
-        <div class="form-group">
-            <label for="monthlyLimit">Monthly Limit ($):</label>
-            <input type="number" id="monthlyLimit" name="monthly_limit" value="100.0" step="0.01" required>
-        </div>
-        <button type="submit" class="btn-primary">Register Agent</button>
-        <div id="registerMessage" class="alert" style="display:none;"></div>
-    </form>
-</div>
+  <div class="section">
+    <div class="section-header">
+      <h2>Agents</h2>
+      <div class="refresh-badge"><span class="dot"></span> Live</div>
+    </div>
+    <div class="table-wrap">
+      <div class="loading" id="agentsLoading">Loading agents</div>
+      <table id="agentsTable" style="display:none">
+        <thead><tr><th>Agent</th><th>Daily Budget</th><th>Monthly Budget</th><th>Spent</th><th>Status</th></tr></thead>
+        <tbody id="agentsBody"></tbody>
+      </table>
+      <div class="empty-state" id="agentsEmpty" style="display:none">No agents registered yet. <br><code>POST /api/v1/agents</code> to get started.</div>
+    </div>
+  </div>
 
-<div class="card" style="margin-top: 2rem;">
-    <h2>API Key Management</h2>
-    <p style="color:#71717a;font-size:0.85rem;margin-bottom:1rem;">Your organization's API keys. Revoking a key is permanent.</p>
-    <table>
-    <thead><tr><th>ID</th><th>Owner</th><th>Name</th><th>Status</th><th>Created</th><th>Expires</th><th>Actions</th></tr></thead>
-    <tbody id="apiKeysBody"><tr><td colspan="7">Loading...</td></tr>
-    </table>
-</div>
+  <div class="section">
+    <div class="section-header">
+      <h2>Recent Bookings</h2>
+    </div>
+    <div class="table-wrap">
+      <div class="loading" id="bookingsLoading">Loading bookings</div>
+      <table id="bookingsTable" style="display:none">
+        <thead><tr><th>Time</th><th>Agent</th><th>Resource</th><th>Cost</th><th>Status</th></tr></thead>
+        <tbody id="bookingsBody"></tbody>
+      </table>
+      <div class="empty-state" id="bookingsEmpty" style="display:none">No bookings yet.</div>
+    </div>
+  </div>
 
-<div class="card" style="margin-top: 2rem;">
-    <h2>Audit Trail</h2>
-    <table>
-    <thead><tr><th>Time</th><th>Agent</th><th>Action</th><th>Cost</th><th>Status</th></tr></thead>
-    <tbody id="auditBody"><tr><td colspan="5">Loading...</td></tr>
-    </table>
 </div>
+<script>
+const API = '';
 
-   121|<script>
-   122|const BASE = window.location.origin + '/api/v1';
-   123|let API_KEY = localStorage.getItem('resgov_api_key') || '';
-   124|
-   125|document.getElementById('apiKey').value = API_KEY;
-   126|
-   127|function saveApiKey() {
-   128|    API_KEY = document.getElementById('apiKey').value;
-   129|    localStorage.setItem('resgov_api_key', API_KEY);
-   130|    alert('API Key saved and will be used for all requests.');
-   131|    loadAll(); // Refresh data with new key
-   132|}
-   133|
-   134|async function authenticatedFetch(url, options = {}) {
-   135|    if (!API_KEY) {
-   136|        throw new Error('API Key is missing. Please enter it above.');
-   137|    }
-   138|    const headers = {
-   139|        'X-API-Key': API_KEY,
-   140|        'Content-Type': 'application/json',
-   141|        ...options.headers
-   142|    };
-   143|    const response = await fetch(url, { ...options, headers });
-   144|    if (!response.ok) {
-   145|        const errorData = await response.json().catch(() => ({}));
-   146|        throw new Error(errorData.detail || response.statusText || 'API request failed');
-   147|    }
-   148|    return response.json();
-   149|}
-   150|
-   151|async function loadAll() {
-   152|    document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
-   153|    try {
-   154|        await Promise.all([loadStats(), loadAgents(), loadBookings(), loadAudit(), loadApiKeys()]);
-   155|    } catch (e) {
-   156|        console.error('Error loading dashboard data:', e);
-   157|        showGeneralMessage('alert-error', 'Error loading data: ' + e.message);
-   158|    }
-   159|}
-   160|
-   161|async function loadStats() {
-   162|    try {
-   163|        const agents = await authenticatedFetch(BASE + '/agents');
-   164|        document.getElementById('totalAgents').textContent = agents.length;
-   165|        document.getElementById('activeAgents').textContent = agents.filter(a => a.status === 'active').length;
-   166|        
-   167|        let totalSpend = 0, totalDenied = 0;
-   168|        for (const a of agents) {
-   169|            const usage = await authenticatedFetch(BASE + '/usage/' + a.id);
-   170|            totalSpend += usage.total_spent || 0;
-   171|            totalDenied += usage.total_denied || 0;
-   172|        }
-   173|        document.getElementById('totalSpend').textContent = '$' + totalSpend.toFixed(2);
-   174|        document.getElementById('totalDenied').textContent = totalDenied;
-   175|    } catch(e) { console.error('Stats error:', e); showGeneralMessage('alert-error', 'Failed to load stats: ' + e.message); }
-   176|}
-   177|
-   178|async function loadAgents() {
-   179|    try {
-   180|        const agents = await authenticatedFetch(BASE + '/agents');
-   181|        const el = document.getElementById('agentList');
-   182|        if (!agents.length) { el.innerHTML = '<p style="color:#71717a">No agents registered</p>'; return; }
-   183|        el.innerHTML = agents.map(a => {
-   184|            const daily = a.budgets.find(b => b.period === 'daily');
-   185|            const pct = daily ? Math.min(100, (daily.spent / daily.limit * 100)) : 0;
-   186|            const cls = pct > 80 ? 'danger' : pct > 50 ? 'warn' : 'ok';
-   187|            const badge = a.status === 'active' ? '<span class="badge badge-success">active</span>' : '<span class="badge badge-paused">' + a.status + '</span>';
-   188|            return `<div class="agent-row">
-   189|                <span class="agent-name">${a.name} (${a.agent_id}) ${badge}</span>
-   190|                <div style="display:flex;align-items:center;gap:0.5rem">
-   191|                    <div class="agent-bar"><div class="agent-bar-fill ${cls}" style="width:${pct}%;"></div></div>
-   192|                    <span style="font-size:0.75rem;color:#71717a">$${daily ? daily.spent.toFixed(2) : '0.00'} / $${daily ? daily.limit.toFixed(2) : '—'}</span>
-   193|                </div>
-   194|            </div>`;
-   195|        }).join('');
-   196|    } catch(e) { console.error('Agents error:', e); showGeneralMessage('alert-error', 'Failed to load agents: ' + e.message); }
-   197|}
-   198|
-   199|async function loadBookings() {
-   200|    try {
-   201|        const audit = await authenticatedFetch(BASE + '/audit?limit=10');
-   202|        const el = document.getElementById('recentBookings');
-   203|        if (!audit.length) { el.innerHTML = '<p style="color:#71717a">No bookings yet</p>'; return; }
-   204|        el.innerHTML = audit.slice(0, 8).map(b => {
-   205|            const status = b.status === 'success' ? '<span class="badge badge-success">ok</span>' : '<span class="badge badge-danger">denied</span>';
-   206|            return `<div class="agent-row">
-   207|                <span class="agent-name">${b.agent_id}</span>
-   208|                <span>$${b.cost.toFixed(4)} ${status}</span>
-   209|            </div>`;
-   210|        }).join('');
-   211|    } catch(e) { console.error('Bookings error:', e); showGeneralMessage('alert-error', 'Failed to load recent bookings: ' + e.message); }
-   212|}
-   213|
-   214|async function loadAudit() {
-   215|    try {
-   216|        const audit = await authenticatedFetch(BASE + '/audit?limit=50');
-   217|        const el = document.getElementById('auditBody');
-   218|        if (!audit.length) { el.innerHTML = '<tr><td colspan="5">No entries</td></tr>'; return; }
-   219|        el.innerHTML = audit.map(b => {
-   220|            const t = b.created_at ? b.created_at.replace('T',' ').substring(0,19) : '—';
-   221|            const status = b.status === 'success' ? '<span class="badge badge-success">success</span>' : '<span class="badge badge-danger" title="' + (b.denial_reason||'') + '">denied</span>';
-   222|            return `<tr><td>${t}</td><td>${b.agent_id}</td><td>${b.action}</td><td>$${b.cost.toFixed(4)}</td><td>${status}</td></tr>`;
-   223|        }).join('');
-   224|    } catch(e) { console.error('Audit error:', e); showGeneralMessage('alert-error', 'Failed to load audit trail: ' + e.message); }
-   225|}
-   226|
-   227|async function loadApiKeys() {
-   228|    try {
-   229|        const keys = await authenticatedFetch(BASE + '/user/keys');
-   230|        const el = document.getElementById('apiKeysBody');
-   231|        if (!keys.length) { el.innerHTML = '<tr><td colspan="7">No API keys found for your organization.</td></tr>'; return; }
-   232|        el.innerHTML = keys.map(k => {
-   233|            const statusClass = k.is_active ? 'badge-success' : 'badge-danger';
-   234|            const statusText = k.is_active ? 'Active' : 'Revoked';
-   235|            const expires = k.expires_at ? k.expires_at.split('T')[0] : 'Never';
-   236|            const revokeButton = k.is_active ? `<button class="btn-revoke" onclick="revokeApiKey(${k.id})">Revoke</button>` : '';
-   237|            return `<tr>
-   238|                <td>${k.id}</td>
-   239|                <td>${k.owner}</td>
-   240|                <td>${k.name || '—'}</td>
-   241|                <td><span class="badge ${statusClass}">${statusText}</span></td>
-   242|                <td>${k.created_at.split('T')[0]}</td>
-   243|                <td>${expires}</td>
-   244|                <td>${revokeButton}</td>
-   245|            </tr>`;
-   246|        }).join('');
-   247|    } catch(e) { console.error('API Keys error:', e); showGeneralMessage('alert-error', 'Failed to load API keys: ' + e.message); }
-   248|}
-   249|
-   250|async function revokeApiKey(keyId) {
-   251|    if (!confirm(`Are you sure you want to revoke API Key #${keyId}? This action cannot be undone.`)) {
-   252|        return;
-   253|    }
-   254|    try {
-   255|        await authenticatedFetch(BASE + '/user/keys/' + keyId, {
-   256|            method: 'DELETE'
-   257|        });
-   258|        showGeneralMessage('alert-success', `API Key #${keyId} revoked successfully.`);
-   259|        loadApiKeys(); // Refresh API keys list
-   260|    } catch (e) {
-   261|        console.error('Revoke API Key error:', e);
-   262|        showGeneralMessage('alert-error', `Failed to revoke API Key #${keyId}: ` + e.message);
-   263|    }
-   264|}
-   265|
-   266|function showMessage(elementId, type, message) {
-   267|    const el = document.getElementById(elementId);
-   268|    el.textContent = message;
-   269|    el.className = `alert ${type}`;
-   270|    el.style.display = 'block';
-   271|}
-   272|
-   273|let generalMessageTimeout;
-   274|function showGeneralMessage(type, message) {
-   275|    if (generalMessageTimeout) clearTimeout(generalMessageTimeout); // Clear previous timeout
-   276|    const msgArea = document.createElement('div');
-   277|    msgArea.textContent = message;
-   278|    msgArea.className = `alert ${type}`;
-   279|    msgArea.style.position = 'fixed';
-   280|    msgArea.style.top = '10px';
-   281|    msgArea.style.right = '10px';
-   282|    msgArea.style.zIndex = '1000';
-   283|    document.body.appendChild(msgArea);
-   284|    generalMessageTimeout = setTimeout(() => {
-   285|        msgArea.remove();
-   286|    }, 5000);
-   287|}
-   288|
-   289|
-   290|document.getElementById('registerAgentForm').addEventListener('submit', async function(event) {
-   291|    event.preventDefault();
-   292|    const registerMessageEl = document.getElementById('registerMessage');
-   293|    registerMessageEl.style.display = 'none';
-   294|
-   295|    const formData = new FormData(this);
-   296|    const data = Object.fromEntries(formData.entries());
-   297|    
-   298|    // Ensure numbers are parsed correctly
-   299|    data.daily_limit = parseFloat(data.daily_limit);
-   300|    data.monthly_limit = parseFloat(data.monthly_limit);
-   301|
-   302|    try {
-   303|        await authenticatedFetch(BASE + '/agents', {
-   304|            method: 'POST',
-   305|            body: JSON.stringify(data)
-   306|        });
-   307|        showMessage('registerMessage', 'alert-success', 'Agent registered successfully!');
-   308|        this.reset();
-   309|        loadAll(); // Refresh dashboard data
-   310|         showGeneralMessage('alert-success', 'Agent registered successfully!');
-   311|    } catch (e) {
-   312|        console.error('Agent registration error:', e);
-   313|        showMessage('registerMessage', 'alert-error', 'Registration failed: ' + e.message);
-   314|    }
-   315|});
-   316|
-   317|loadAll();
-   318|setInterval(loadAll, 30000);
-   319|</script>
-   320|
+function fmt(n,d=2){return Number(n||0).toFixed(d)}
+function timeAgo(d){const s=Math.floor((Date.now()-new Date(d).getTime())/1000);if(s<60)return s+'s ago';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago'}
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+
+async function fetchJSON(url){
+  const r = await fetch(url);
+  if(r.status===401){document.body.innerHTML='<div style="padding:2rem;text-align:center"><h2>Authentication Required</h2><p>Set RESGOV_DASH_USER and RESGOV_DASH_PASS environment variables.</p></div>';throw new Error('auth');}
+  return r.json();
+}
+
+function budgetBar(used,limit){
+  if(!limit||limit<=0)return '';
+  const pct=Math.min(100,(used/limit)*100);
+  const cls=pct>80?'red':pct>50?'yellow':'green';
+  return `<div class="budget-bar"><div class="budget-bar-fill ${cls}" style="width:${pct}%"></div></div>`;
+}
+
+async function loadStats(){
+  try{
+    const d=await fetchJSON(API+'/dash/api/stats');
+    document.getElementById('statAgents').textContent=d.agents.total;
+    document.getElementById('statAgentsActive').textContent=d.agents.active_24h+' active (24h)';
+    document.getElementById('statBookings').textContent=d.bookings.total;
+    document.getElementById('statBookingsDenied').textContent=d.bookings.denied+' denied';
+    document.getElementById('statSpent').textContent='$'+fmt(d.costs.total_spent);
+    document.getElementById('statRefunded').textContent='$'+fmt(d.costs.total_refunded)+' refunded';
+    document.getElementById('statDenials24h').textContent=d.bookings.denied_24h;
+  }catch(e){if(e.message!=='auth')console.error(e)}
+}
+
+async function loadAgents(){
+  try{
+    const d=await fetchJSON(API+'/dash/api/agents');
+    const tbody=document.getElementById('agentsBody');
+    tbody.innerHTML='';
+    if(!d.length){document.getElementById('agentsLoading').style.display='none';document.getElementById('agentsEmpty').style.display='block';return}
+    for(const a of d){
+      const dailyUsed=(a.daily_limit-a.daily_remaining)||0;
+      const monthlyUsed=(a.monthly_limit-a.monthly_remaining)||0;
+      const badge=a.status==='active'?'<span class="badge badge-success">active</span>':'<span class="badge badge-neutral">'+esc(a.status)+'</span>';
+      tbody.innerHTML+=`<tr>
+        <td><div class="agent-name">`+esc(a.name)+`</div><div class="agent-id">`+esc(a.agent_id)+`</div></td>
+        <td>$`+fmt(a.daily_used)+` / $`+fmt(a.daily_limit)+`<br>`+budgetBar(dailyPer,a.daily_limit)+`</td>
+        <td>$`+fmt(monthlyUsed)+` / $`+fmt(a.monthly_limit)+`<br>`+budgetBar(monthlyUsed,a.monthly_limit)+`</td>
+        <td>$`+fmt(a.total_spent)+`</td>
+        <td>`+badge+`</td>
+      </tr>`;
+    }
+    document.getElementById('agentsLoading').style.display='none';
+    document.getElementById('agentsTable').style.display='table';
+  }catch(e){if(e.message!=='auth')console.error(e)}
+}
+
+async function loadBookings(){
+  try{
+    const d=await fetchJSON(API+'/dash/api/bookings?limit=25');
+    const tbody=document.getElementById('bookingsBody');
+    tbody.innerHTML='';
+    if(!d.length){document.getElementById('bookingsLoading').style.display='none';document.getElementById('bookingsEmpty').style.display='block';return}
+    for(const b of d){
+      const badge=b.status==='completed'?'<span class="badge badge-success">completed</span>':b.status==='denied'?'<span class="badge badge-danger">denied</span>':'<span class="badge badge-warning">'+esc(b.status)+'</span>';
+      const cost=b.actual_cost?'$'+fmt(b.actual_cost):b.reserved_cost?'$'+fmt(b.reserved_cost)+' (est.)':'—';
+      tbody.innerHTML+=`<tr>
+        <td style="white-space:nowrap;color:var(--muted);font-size:0.75rem">`+timeAgo(b.created_at)+`</td>
+        <td class="agent-id">`+esc(b.agent_id)+`</td>
+        <td>`+esc(b.resource_type)+`<br><span style="font-size:0.75rem;color:var(--muted)">`+esc(b.action)+`</span></td>
+        <td>`+cost+`</td>
+        <td>`+badge+`</td>
+      </tr>`;
+    }
+    document.getElementById('bookingsLoading').style.display='none';
+    document.getElementById('bookingsTable').style.display='table';
+  }catch(e){if(e.message!=='auth')console.error(e)}
+}
+
+async function refresh(){
+  Promise.all([loadStats(),loadAgents(),loadBookings()]);
+  document.getElementById('lastUpdate').textContent=new Date().toLocaleTimeString();
+}
+
+refresh();
+setInterval(refresh,5000);
+</script>
+</body>
+</html>
