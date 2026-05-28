@@ -105,7 +105,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Resource Governance Framework (RGF)",
     description="Resource Governance Framework (RGF) for Multi-Agent Environments — LLM Proxy + Budget Control + Crash Recovery",
-    version="0.4.0",
+    version="0.4.4",
     lifespan=lifespan,
 )
 
@@ -337,7 +337,7 @@ async def health():
     return {
         "status": status,
         "service": "resgov",
-        "version": "0.4.0",
+        "version": "0.4.4",
         "db": db_status,
         "scheduler": scheduler_status,
     }
