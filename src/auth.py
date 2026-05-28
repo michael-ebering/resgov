@@ -197,6 +197,11 @@ def revoke_api_key(key_id: int) -> bool:
     return db.total_changes > 0
 
 
+async def require_org(x_api_key: Optional[str] = Header(None, alias="X-API-Key")):
+    owner_info = verify_api_key(x_api_key)
+    return owner_info  # enthält owner, org_id, scopes
+
+
 def list_api_keys(org_id: Optional[str] = None) -> list:
     """List all API keys (without hashes). Optionally filter by org_id."""
     db = _get_db()

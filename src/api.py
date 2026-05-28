@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 from .models import init_db, reset_daily_budgets, reset_monthly_budgets
 from .engine import BudgetEngine
-from .auth import verify_api_key, verify_admin_token, generate_api_key, ADMIN_TOKEN, init_api_keys_table, create_api_key, revoke_api_key, list_api_keys, _get_db
+from .auth import verify_api_key, verify_admin_token, generate_api_key, ADMIN_TOKEN, init_api_keys_table, create_api_key, revoke_api_key, list_api_keys, _get_db, require_org
 from .middleware import setup_cors, RateLimitMiddleware, RequestLoggingMiddleware, ConnectionPool, logger
 from .scheduler import start_scheduler, stop_scheduler
 
@@ -125,14 +125,15 @@ async def require_admin(x_admin_token: Optional[str] = Header(None, alias="X-Adm
 # --- API Endpoints ---
 
 @app.post("/api/v1/agents", status_code=201)
-async def register_agent(req: AgentRegister, owner=Depends(require_api_key)):
+async def register_agent(req: AgentRegister, owner_info=Depends(require_api_key)):
     """Register a new agent with budgets."""
     engine = BudgetEngine(rgf_config=RGF_CONFIG)
+    agent_org_id = owner_info["org_id"]  # Enforce org_id from API key
     try:
         agent = engine.register_agent(
             agent_id=req.agent_id,
             name=req.name,
-            org_id=req.org_id,
+            org_id=agent_org_id,
             description=req.description,
             daily_limit=req.daily_limit,
             monthly_limit=req.monthly_limit,
@@ -144,46 +145,51 @@ async def register_agent(req: AgentRegister, owner=Depends(require_api_key)):
         raise
 
 @app.get("/api/v1/agents/{agent_id}")
-async def get_agent(agent_id: str, owner=Depends(require_api_key)):
+async def get_agent(agent_id: str, owner_info=Depends(require_api_key)):
     """Get agent status and budget."""
     engine = BudgetEngine(rgf_config=RGF_CONFIG)
-    agent = engine.get_agent(agent_id=agent_id)
+    org_id = owner_info["org_id"]
+    agent = engine.get_agent(agent_id=agent_id, org_id=org_id)
     if not agent:
-        raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found.")
+        raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found or not authorized.")
     return agent
 
 @app.put("/api/v1/agents/{agent_id}/budget")
-async def update_budget(agent_id: str, req: BudgetUpdate, owner=Depends(require_api_key)):
+async def update_budget(agent_id: str, req: BudgetUpdate, owner_info=Depends(require_api_key)):
     """Update an agent's budget."""
     engine = BudgetEngine(rgf_config=RGF_CONFIG)
-    agent = engine.get_agent(agent_id=agent_id)
-    if not agent:
-        raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found.")
-    return engine.set_budget(agent_id, req.period, req.limit_amount)
+    org_id = owner_info["org_id"]
+    result = engine.set_budget(agent_id, req.period, req.limit_amount, org_id)
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["message"])
+    return result
 
 @app.delete("/api/v1/agents/{agent_id}")
-async def delete_agent(agent_id: str, owner=Depends(require_api_key)):
+async def delete_agent(agent_id: str, owner_info=Depends(require_api_key)):
     """Soft-delete an agent (revoke access, keep audit trail)."""
     engine = BudgetEngine(rgf_config=RGF_CONFIG)
-    agent = engine.get_agent(agent_id=agent_id)
-    if not agent:
-        raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found.")
-    return engine.delete_agent(agent_id)
+    org_id = owner_info["org_id"]
+    result = engine.delete_agent(agent_id, org_id)
+    if not result["deleted"]:
+        raise HTTPException(status_code=404, detail=result["message"])
+    return result
 
 @app.post("/api/v1/book")
-async def book_resource(req: BookingRequest, owner=Depends(require_api_key)):
+async def book_resource(req: BookingRequest, owner_info=Depends(require_api_key)):
     """
     Book a resource for an agent.
     Returns 200 if approved, 403 if denied.
     """
     _metrics["requests_total"] += 1
     engine = BudgetEngine(rgf_config=RGF_CONFIG)
+    org_id = owner_info["org_id"]
     result = engine.book(
         agent_id=req.agent_id,
         resource_type=req.resource_type,
         action=req.action,
         cost=req.cost,
         metadata=req.metadata,
+        org_id=org_id,
     )
 
     if result["status"] == "success":
@@ -196,22 +202,24 @@ async def book_resource(req: BookingRequest, owner=Depends(require_api_key)):
     return result
 
 @app.get("/api/v1/agents")
-async def list_agents(org_id: Optional[str] = None, owner=Depends(require_api_key)):
-    """List all active agents. Optionally filter by org_id."""
+async def list_agents(owner_info=Depends(require_api_key)):
+    """List all active agents for the authenticated organization."""
     engine = BudgetEngine(rgf_config=RGF_CONFIG)
+    org_id = owner_info["org_id"]
     return engine.list_agents(org_id=org_id)
 
 @app.get("/api/v1/usage/{agent_id}")
 async def get_usage(
     agent_id: str,
     limit: int = Query(default=100, ge=1, le=1000),
-    owner=Depends(require_api_key),
+    owner_info=Depends(require_api_key),
 ):
     """Get usage statistics for an agent."""
     engine = BudgetEngine(rgf_config=RGF_CONFIG)
-    usage = engine.get_usage(agent_id, limit=limit)
+    org_id = owner_info["org_id"]
+    usage = engine.get_usage(agent_id, limit=limit, org_id=org_id)
     if "error" in usage:
-        raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found.")
+        raise HTTPException(status_code=404, detail=usage["message"])
     return usage
 
 @app.get("/api/v1/audit")
@@ -219,22 +227,35 @@ async def get_audit(
     org_id: Optional[str] = None,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=100, ge=1, le=500),
-    owner=Depends(require_api_key),
+    owner_info=Depends(require_api_key),
 ):
-    """Get paginated audit trail. Optionally filter by org_id for tenant isolation."""
+    """Get paginated audit trail. Optionally filter by org_id for tenant isolation.
+
+    Admins can specify `org_id` as None to see all bookings.
+    Non-admins will implicitly filter by their `org_id`.
+    """
     engine = BudgetEngine(rgf_config=RGF_CONFIG)
-    return engine.get_audit_log(org_id=org_id, page=page, page_size=page_size)
+    requester_org_id = owner_info["org_id"]
+    
+    # If requester is admin and explicitly provides org_id, use it. Otherwise, use requester's org_id.
+    if "admin" in owner_info["scopes"] and org_id is not None:
+        filter_org_id = org_id
+    else:
+        filter_org_id = requester_org_id
+        
+    return engine.get_audit_log(org_id=filter_org_id, page=page, page_size=page_size)
 
 @app.get("/api/v1/agents/{agent_id}/prediction")
 async def get_prediction(
     agent_id: str,
     period: str = Query(default="daily", pattern="^(daily|monthly)$"),
     lookback_hours: int = Query(default=6, ge=1, le=24 * 7),
-    owner=Depends(require_api_key),
+    owner_info=Depends(require_api_key),
 ):
     """Get budget exhaustion prediction for an agent."""
     engine = BudgetEngine(rgf_config=RGF_CONFIG)
-    prediction = engine.get_budget_prediction(agent_id, period, lookback_hours)
+    org_id = owner_info["org_id"]
+    prediction = engine.get_budget_prediction(agent_id, period, lookback_hours, org_id=org_id)
     if prediction["status"] == "error":
         raise HTTPException(status_code=404, detail=prediction["message"])
     return prediction

@@ -149,18 +149,26 @@ class BudgetEngine:
         _send_webhook("agent.registered", {"agent_id": agent_id, "name": name})
         return result
 
-    def get_agent(self, db=None, agent_id: str = None) -> Optional[dict]:
+    def get_agent(self, db=None, agent_id: str = None, org_id: Optional[str] = None) -> Optional[dict]:
         """Get agent details with current budget status."""
         if agent_id is None:
             # Called without db, just return None (compat)
             return None
 
         if db is None:
-            return self._fetch_agent(get_db(), agent_id)
-        return self._fetch_agent(db, agent_id)
+            return self._fetch_agent(get_db(), agent_id, org_id)
+        return self._fetch_agent(db, agent_id, org_id)
 
-    def _fetch_agent(self, db, agent_id: str) -> Optional[dict]:
-        agent = db.execute("SELECT * FROM agents WHERE id = ?", (agent_id,)).fetchone()
+    def _fetch_agent(self, db, agent_id: str, org_id: Optional[str] = None) -> Optional[dict]:
+        """Fetch agent by ID. If org_id is given, only return if agent belongs to that org."""
+        if org_id:
+            agent = db.execute(
+                "SELECT * FROM agents WHERE id = ? AND org_id = ?", (agent_id, org_id)
+            ).fetchone()
+        else:
+            agent = db.execute(
+                "SELECT * FROM agents WHERE id = ?", (agent_id,)
+            ).fetchone()
         if not agent:
             return None
 
@@ -195,6 +203,7 @@ class BudgetEngine:
         action: str = "execute",
         cost: float = 0.0,
         metadata: Optional[dict] = None,
+        org_id: Optional[str] = None,
     ) -> dict:
         """Book a resource. Uses row-level locking to prevent race conditions."""
 
@@ -209,16 +218,16 @@ class BudgetEngine:
         meta_json = json.dumps(metadata or {})
 
         def _op(db):
-            # Agent check
+            # Agent check - ensure agent belongs to the organization (or org_id is None for admin etc.)
             agent = db.execute(
-                "SELECT * FROM agents WHERE id = ?", (agent_id,)
+                "SELECT * FROM agents WHERE id = ? AND (? IS NULL OR org_id = ?)", (agent_id, org_id, org_id)
             ).fetchone()
 
             if not agent:
                 return {
                     "status": "denied",
                     "reason": "agent_not_found",
-                    "message": f"Agent '{agent_id}' is not registered.",
+                    "message": f"Agent '{agent_id}' is not registered or does not belong to your organization.",
                 }
 
             if agent["status"] != "active":
@@ -295,12 +304,12 @@ class BudgetEngine:
 
         return result
 
-    def get_usage(self, agent_id: str, limit: int = 100) -> dict:
+    def get_usage(self, agent_id: str, limit: int = 100, org_id: Optional[str] = None) -> dict:
         """Get usage statistics for an agent."""
         db = get_db()
-        agent = self._fetch_agent(db, agent_id)
+        agent = self._fetch_agent(db, agent_id, org_id)
         if not agent:
-            return {"error": "agent_not_found"}
+            return {"error": "agent_not_found", "message": f"Agent '{agent_id}' not found or does not belong to your organization."}
 
         bookings = db.execute(
             """SELECT * FROM bookings WHERE agent_id = ?
@@ -392,10 +401,14 @@ class BudgetEngine:
             "pages": (total + page_size - 1) // page_size,
         }
 
-    def set_budget(self, agent_id: str, period: str, limit_amount: float) -> dict:
+    def set_budget(self, agent_id: str, period: str, limit_amount: float, org_id: Optional[str] = None) -> dict:
         """Set or update a budget for an agent."""
 
         def _op(db):
+            agent = self._fetch_agent(db, agent_id, org_id)
+            if not agent:
+                return {"error": "agent_not_found", "message": f"Agent '{agent_id}' not found or does not belong to your organization."}
+
             now = datetime.now(timezone.utc).isoformat()
             db.execute(
                 """INSERT INTO budgets (agent_id, period, limit_amount, spent_amount, updated_at)
@@ -403,18 +416,22 @@ class BudgetEngine:
                    ON CONFLICT(agent_id, period) DO UPDATE SET limit_amount = ?, updated_at = ?""",
                 (agent_id, period, limit_amount, now, limit_amount, now),
             )
-            return self._fetch_agent(db, agent_id)
+            return self._fetch_agent(db, agent_id, org_id)
 
         result = self._execute_with_retry(_op, "set_budget")
         _send_webhook("budget.updated", {"agent_id": agent_id, "period": period, "limit": limit_amount})
         return result
 
-    def delete_agent(self, agent_id: str) -> dict:
+    def delete_agent(self, agent_id: str, org_id: Optional[str] = None) -> dict:
         """Soft-delete an agent (mark as revoked, keep audit trail)."""
         def _op(db):
+            agent = self._fetch_agent(db, agent_id, org_id)
+            if not agent:
+                return {"deleted": False, "agent_id": agent_id, "message": f"Agent '{agent_id}' not found or does not belong to your organization."}
+
             db.execute(
-                "UPDATE agents SET status = 'revoked' WHERE id = ?",
-                (agent_id,),
+                "UPDATE agents SET status = 'revoked' WHERE id = ? AND org_id = ?",
+                (agent_id, agent['org_id']), # Use the org_id from the fetched agent
             )
             affected = db.total_changes
             return {"deleted": affected > 0, "agent_id": agent_id}
@@ -441,15 +458,15 @@ class BudgetEngine:
     # --- Proxy Budget Management (Reserve / Finalize Pattern) ---
 
     def get_budget_prediction(self, agent_id: str, period: str = "daily",
-                            lookback_hours: int = 6, db=None) -> Dict:
+                            lookback_hours: int = 6, db=None, org_id: Optional[str] = None) -> Dict:
         """
         Predicts when an agent's budget will be exhausted based on recent spend rate.
         """
         _db = db if db else get_db()
 
-        agent = self._fetch_agent(_db, agent_id)
+        agent = self._fetch_agent(_db, agent_id, org_id)
         if not agent:
-            return {"status": "error", "message": f"Agent '{agent_id}' not found."}
+            return {"status": "error", "message": f"Agent '{agent_id}' not found or does not belong to your organization."}
 
         budget_info = next((b for b in agent["budgets"] if b["period"] == period), None)
         if not budget_info:
