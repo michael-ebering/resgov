@@ -39,7 +39,7 @@ def get_db() -> sqlite3.Connection:
     """Get a thread-local database connection."""
     if not hasattr(_local, "connection") or _local.connection is None:
         db_path = get_db_path()
-        _local.connection = sqlite3.connect(db_path, timeout=30)
+        _local.connection = sqlite3.connect(db_path, timeout=30, check_same_thread=False)
         _local.connection.execute("PRAGMA journal_mode=WAL")
         _local.connection.execute("PRAGMA foreign_keys=ON")
         _local.connection.row_factory = sqlite3.Row

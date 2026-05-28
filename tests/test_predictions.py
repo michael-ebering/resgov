@@ -8,22 +8,20 @@ from src.config import load_rgf_config
 from fastapi.testclient import TestClient
 from src.api import app, RGF_CONFIG
 from src.models import init_db
-import sqlite3
+from src.middleware import get_db, close_db as _close_db
 
-# Fixture for database connection
-@pytest.fixture(name="db_connection")
+# Use the module-isolated file DB from conftest.py instead of in-memory.
+# The module_db fixture in conftest.py sets RESGOV_DB_PATH per module.
+@pytest.fixture(name="db_connection", scope="module")
 def fixture_db_connection():
-    # Use an in-memory database for testing
-    conn = sqlite3.connect(":memory:", check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    init_db(conn)
-    yield conn
-    conn.close()
+    """Use the module-isolated file DB."""
+    db = get_db()
+    yield db
 
-# Fixture for BudgetEngine with test config
-@pytest.fixture(name="budget_engine")
+
+@pytest.fixture(name="budget_engine", scope="module")
 def fixture_budget_engine(db_connection):
-    # Load test .rgf config
+    """BudgetEngine using the module-isolated test DB."""
     RGF_CONFIG.update(load_rgf_config(".rgf"))
     init_db(db_connection)
     return BudgetEngine(rgf_config=RGF_CONFIG, db=db_connection)

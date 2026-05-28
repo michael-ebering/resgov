@@ -6,13 +6,14 @@ import os
 import secrets
 import hashlib
 import sqlite3
+import sqlite3
 import threading
 from typing import Optional
 from fastapi import Header, HTTPException, Request
 
-_local = threading.local()
+# Use the shared thread-local _local from middleware (single source of truth)
+from .middleware import _local
 
-# --- Configuration ---
 
 def _get_admin_token() -> str:
     """Read admin token from env on every call (avoids stale module-level cache in tests)."""
@@ -23,7 +24,7 @@ ADMIN_TOKEN = _get_admin_token()
 
 
 def _get_db() -> sqlite3.Connection:
-    """Get thread-local DB connection."""
+    """Get thread-local DB connection (delegates to middleware)."""
     if not hasattr(_local, "connection") or _local.connection is None:
         from .middleware import get_db
         _local.connection = get_db()

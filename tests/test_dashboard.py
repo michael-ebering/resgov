@@ -2,34 +2,28 @@
 import os
 import pytest
 from unittest.mock import patch
-import sqlite3
 
-from src.models import init_db, get_db as models_get_db
-from src.engine import get_db as engine_get_db
-from src.engine import BudgetEngine
+from src.models import init_db
+from src.engine import BudgetEngine, get_db as engine_get_db
 from src.auth import init_api_keys_table
-from src.middleware import get_db as middleware_get_db
+from src.middleware import get_db as middleware_get_db, close_db
 
 
-@pytest.fixture(name="db_connection")
+@pytest.fixture(name="db_connection", scope="module")
 def fixture_db_connection():
-    """In-memory SQLite DB shared across test threads."""
-    conn = sqlite3.connect(":memory:", check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    init_db(conn)
-    init_api_keys_table()
-    yield conn
-    conn.close()
+    """Use the module-isolated file DB from conftest.module_db."""
+    db = middleware_get_db()
+    yield db
 
 
-@pytest.fixture(name="engine")
+@pytest.fixture(name="engine", scope="module")
 def fixture_engine(db_connection):
-    """BudgetEngine using the in-memory test DB."""
+    """BudgetEngine using the module-isolated test DB."""
     eng = BudgetEngine(db=db_connection)
     yield eng
 
 
-@pytest.fixture(name="client")
+@pytest.fixture(name="client", scope="module")
 def fixture_client(db_connection):
     """TestClient with DB dependency overrides."""
     from src.api import app
