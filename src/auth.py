@@ -14,7 +14,12 @@ _local = threading.local()
 
 # --- Configuration ---
 
-ADMIN_TOKEN = os.environ.get("RESGOV_ADMIN_TOKEN", os.environ.get("RESGOV_ADMIN_KEY", ""))
+def _get_admin_token() -> str:
+    """Read admin token from env on every call (avoids stale module-level cache in tests)."""
+    return os.environ.get("RESGOV_ADMIN_TOKEN", os.environ.get("RESGOV_ADMIN_KEY", ""))
+
+
+ADMIN_TOKEN = _get_admin_token()
 
 
 def _get_db() -> sqlite3.Connection:
@@ -79,7 +84,7 @@ def verify_api_key(api_key: Optional[str] = None) -> dict:
     Raises 401 if invalid.
     """
     # Dev mode: no admin token, no keys in DB → allow all
-    if not ADMIN_TOKEN and not _has_any_keys():
+    if not _get_admin_token() and not _has_any_keys():
         return {"owner": "dev", "org_id": "default", "scopes": "read,write"}
 
     if not api_key:
@@ -127,13 +132,14 @@ def verify_admin_token(admin_token: Optional[str] = None) -> None:
     Verify admin token for privileged operations.
     Raises 403 if invalid.
     """
-    if not ADMIN_TOKEN:
+    effective_token = _get_admin_token()
+    if not effective_token:
         return  # Dev mode
 
     if not admin_token:
         raise HTTPException(status_code=403, detail="Missing X-Admin-Token header")
 
-    if not secrets.compare_digest(admin_token, ADMIN_TOKEN):
+    if not secrets.compare_digest(admin_token, effective_token):
         raise HTTPException(status_code=403, detail="Invalid admin token")
 
 

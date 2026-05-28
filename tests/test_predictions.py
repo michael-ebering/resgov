@@ -14,7 +14,7 @@ import sqlite3
 @pytest.fixture(name="db_connection")
 def fixture_db_connection():
     # Use an in-memory database for testing
-    conn = sqlite3.connect(":memory:")
+    conn = sqlite3.connect(":memory:", check_same_thread=False)
     conn.row_factory = sqlite3.Row
     init_db(conn)
     yield conn
@@ -28,20 +28,33 @@ def fixture_budget_engine(db_connection):
     init_db(db_connection)
     return BudgetEngine(rgf_config=RGF_CONFIG, db=db_connection)
 
-    # Fixture for FastAPI TestClient
+# Fixture for FastAPI TestClient
 @pytest.fixture(name="test_client")
 def fixture_test_client(db_connection):
     # Set admin token for testing admin endpoints
     os.environ["RESGOV_ADMIN_TOKEN"] = "test_admin_token"
-    # Override get_db for testing to use in-memory db
-    from src.middleware import get_db as original_get_db
-    def override_get_db():
-        return db_connection
-    app.dependency_overrides[original_get_db] = override_get_db
+    # Override get_db in all modules that import it, so BudgetEngine
+    # inside API endpoints uses the same in-memory DB as the test fixtures.
+    from unittest.mock import patch
+    import src.models
+    import src.engine
+    import src.auth
+    import src.middleware
+    mocks = [
+        patch.object(src.models, "get_db", return_value=db_connection),
+        patch.object(src.engine, "get_db", return_value=db_connection),
+        patch.object(src.engine, "_get_db", return_value=db_connection),
+        patch.object(src.auth, "_get_db", return_value=db_connection),
+        patch.object(src.middleware, "get_db", return_value=db_connection),
+    ]
+    for m in mocks:
+        m.start()
     with TestClient(app) as client:
         yield client
-    app.dependency_overrides = {} # Clear overrides
-    del os.environ["RESGOV_ADMIN_TOKEN"] # Clean up env var
+    for m in mocks:
+        m.stop()
+    app.dependency_overrides = {}  # Clear overrides
+    del os.environ["RESGOV_ADMIN_TOKEN"]  # Clean up env var
 
 # Helper function to create an agent and make bookings
 def setup_agent_and_bookings(engine: BudgetEngine, agent_id, daily_limit, monthly_limit, num_bookings, cost_per_booking, start_time_offset_seconds=0):
