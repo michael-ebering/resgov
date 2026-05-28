@@ -408,10 +408,12 @@ def _estimate_max_cost(model: str, max_tokens: int, price_table: dict,
     return round(input_cost + output_cost, 6)
 
 def _extract_usage_from_chunk(chunk: bytes) -> dict:
-    """Try to extract token usage from a streaming chunk."""
+    """Try to extract token usage from a streaming chunk (OpenAI format only).
+
+    DEPRECATED: Use src.providers.extract_usage(chunk, model) instead.
+    """
     try:
         text = chunk.decode("utf-8", errors="ignore")
-        # OpenAI streaming format: data: {...}
         for line in text.split("\n"):
             line = line.strip()
             if line.startswith("data: ") and line != "data: [DONE]":
@@ -421,6 +423,37 @@ def _extract_usage_from_chunk(chunk: bytes) -> dict:
                     return usage
     except (json.JSONDecodeError, UnicodeDecodeError):
         pass
+    return {}
+
+
+def _extract_usage_from_response(resp_data: dict) -> dict:
+    """Extract token usage from a non-streaming response body.
+
+    Handles multiple provider formats:
+    - OpenAI: {"usage": {"prompt_tokens": N, "completion_tokens": N, "total_tokens": N}}
+    - Anthropic: {"usage": {"input_tokens": N, "output_tokens": N}}
+    - Google: {"usageMetadata": {"promptTokenCount": N, "candidatesTokenCount": N}}
+
+    Returns: {"input_tokens": N, "output_tokens": N, "total_tokens": N}
+    """
+    # Google format
+    usage_meta = resp_data.get("usageMetadata")
+    if usage_meta:
+        input_tokens = int(usage_meta.get("promptTokenCount", 0))
+        output_tokens = int(usage_meta.get("candidatesTokenCount", 0))
+        total = int(usage_meta.get("totalTokenCount", input_tokens + output_tokens))
+        if input_tokens or output_tokens:
+            return {"input_tokens": input_tokens, "output_tokens": output_tokens, "total_tokens": total}
+
+    # OpenAI/Anthropic format
+    usage = resp_data.get("usage", {})
+    if usage:
+        input_tokens = usage.get("prompt_tokens", usage.get("input_tokens", 0))
+        output_tokens = usage.get("completion_tokens", usage.get("output_tokens", 0))
+        total_tokens = usage.get("total_tokens", input_tokens + output_tokens)
+        if input_tokens or output_tokens:
+            return {"input_tokens": input_tokens, "output_tokens": output_tokens, "total_tokens": total_tokens}
+
     return {}
 
 @app.post("/v1/chat/completions")
@@ -511,31 +544,31 @@ async def llm_proxy(
 
     if is_stream:
         # Streaming: forward chunks, track usage, finalize after stream
-        actual_tokens = 0
+        actual_input_tokens = 0
+        actual_output_tokens = 0
 
         async def stream_with_finalization():
-            nonlocal actual_tokens
+            nonlocal actual_input_tokens, actual_output_tokens
             try:
                 async with _httpx_client.stream("POST", upstream_url, json=body, headers=headers) as resp:
                     async for chunk in resp.aiter_bytes():
-                        usage = _extract_usage_from_chunk(chunk)
+                        # Provider-specific usage extraction
+                        from .providers import extract_usage as _provider_extract_usage
+                        usage = _provider_extract_usage(chunk, model)
                         if usage:
-                            actual_tokens = usage.get("total_tokens", 0)
+                            actual_input_tokens = usage.get("input_tokens", actual_input_tokens)
+                            actual_output_tokens = usage.get("output_tokens", actual_output_tokens)
                         yield chunk
             finally:
                 # Phase 3: Finalize budget
                 # Streaming backends rarely send usage in chunks — fallback to estimation
                 pricing = price_table.get(model, price_table["default"])
-                if actual_tokens == 0:
+                if not actual_input_tokens and not actual_output_tokens:
                     # Fallback: estimate from messages + max_tokens
-                    input_tokens = _estimate_input_tokens(body.get("messages", []))
-                    output_tokens = max_tokens
-                else:
-                    # We got total_tokens from stream — rough split (assume 30% input, 70% output)
-                    input_tokens = int(actual_tokens * 0.3)
-                    output_tokens = int(actual_tokens * 0.7)
-                input_cost = round(input_tokens * pricing.get("input", 0.000001), 6)
-                output_cost = round(output_tokens * pricing.get("output", 0.000003), 6)
+                    actual_input_tokens = _estimate_input_tokens(body.get("messages", []))
+                    actual_output_tokens = max_tokens
+                input_cost = round(actual_input_tokens * pricing.get("input", 0.000001), 6)
+                output_cost = round(actual_output_tokens * pricing.get("output", 0.000003), 6)
                 actual_cost = round(input_cost + output_cost, 6)
                 # finalize is fire-and-forget — never let it break the response
                 try:
@@ -557,20 +590,12 @@ async def llm_proxy(
             resp = await _httpx_client.post(upstream_url, json=body, headers=headers)
             resp_data = resp.json()
 
-            # Extract usage — separate input/output tokens
-            usage = resp_data.get("usage", {})
+            # Extract usage — handles OpenAI, Anthropic, Google formats
+            usage = _extract_usage_from_response(resp_data)
             pricing = price_table.get(model, price_table["default"])
 
-            input_tokens = (
-                usage.get("prompt_tokens")
-                or usage.get("input_tokens")
-                or _estimate_input_tokens(body.get("messages", []))
-            )
-            output_tokens = (
-                usage.get("completion_tokens")
-                or usage.get("output_tokens")
-                or max_tokens
-            )
+            input_tokens = usage.get("input_tokens") or _estimate_input_tokens(body.get("messages", []))
+            output_tokens = usage.get("output_tokens") or max_tokens
 
             input_cost = round(input_tokens * pricing.get("input", 0.000001), 6)
             output_cost = round(output_tokens * pricing.get("output", 0.000003), 6)
