@@ -180,31 +180,31 @@ GET    /api/v1/audit                 → Paginierter System-Audit-Trail
 GET    /metrics                      → Native Prometheus-Metrics
 ```
 
-## \ud83d\uddc4️ Architektur & Produktionsdesign
+## 🏗️ Architektur & Produktionsdesign
 ```
-                    ┌─────────────────────────────────────────────┐
+                    ┌──────────────────────────────────┐
                     │          RGF Broker              │
-                    └────────────├──────────────────────────────┨
+                    └──────────────┬───────────────────┘
                                    │
-            ┌──────────┼────────────├────────────┼────────────────┐
+            ┌──────────┬───────────┼───────────┬──────────────┐
             │          │           │           │              │
-     ┌────────┼────┨┌───▼─────┨┌────────▼─────┨┌───▼────────────┨┌────────┼─────────────┨
-     │   Auth    ││Budget ││  LLM    ││Webhooks││ Prometheus │
-     │   Layer   ││Engine ││  Proxy  ││Discord/││  /metrics  │
-     │ API Keys  ││       ││Reserve ││Slack    ││            │
-     │ Admin Tok ││       ││Stream   ││HMAC     ││            │
-     ┘──────────┼────┨┴───▼─────┨│Finalize│┘──────────┼────────────┴─────────────┘
-                       │     │───────────────
-                ┌───────▼────────────────┐
+     ┌──────▼────┐ ┌───▼───┐ ┌────▼────┐ ┌───▼─────┐ ┌─────▼──────┐
+     │   Auth    │ │Budget │ │  LLM    │ │Webhooks │ │ Prometheus │
+     │   Layer   │ │Engine │ │  Proxy  │ │Discord/ │ │  /metrics  │
+     │ API Keys  │ │       │ │Reserve  │ │Slack    │ │            │
+     │ Admin Tok │ │       │ │Finalize │ │HMAC     │ │            │
+     └───────────┘ └───┬───┘ └─────────┘ └─────────┘ └────────────┘
+                       │
+                ┌──────▼──────────────┐
                 │    SQLite (WAL)     │
-                ┘─────────────────────────────┘
+                └─────────────────────┘
 ```
 
 *   **SQLite-WAL-Core:** Nutzt gleichzeitige Lesevorgänge und serialisierte Schnellschreibvorgänge. Perfekt für Zero-Konfigurations-Einzelinstanzumgebungen und Edge-Infrastruktur.
 *   **Pessimistische Stream-Reservation:** Löst Concurrency-Doppelabzug durch sofortiges Prüfen und Abziehen der potenziellen `max_cost`. Die kostenintensive Streaming-Phase läuft komplett lockfrei.
 *   **Crash-Recovery-Guard:** Hängende Reservationen verfallen und stellen sich nach 5 Minuten automatisch wieder her, wenn ein Agent mid-stream abstürzt.
 
-## \ud83d\uddfaþ0f Roadmap
+## 🗺️ Roadmap
 
 - [Developer-Onboarding](ONBOARDING.md) · [Deployment-Guide](DEPLOYMENT.md) · [.rgf-Beispiele](docs/rgf-examples.md)
 
@@ -221,7 +221,7 @@ GET    /metrics                      → Native Prometheus-Metrics
 *   [ ] Multi-tenant Managed Cloud SaaS (resgov.silentops.cloud).
 *   [ ] Enterprise SSO / SAML & granulare rollenbasierte Zugangskontrolle (RBAC).
 
-## \ud83d\udcdd Lizenz
+## 📄 Lizenz
 Dieses Projekt ist unter der Business Source License 1.1 (BSL-1.1) lizenziert.
 *   Für immer kostenlos für persönliche Nutzung, Tests und interne nicht-kommerzielle Setups.
 *   Für immer kostenlos fürs Produktions-Setup in Unternehmen mit &lt; $1M ARR.

@@ -181,9 +181,9 @@ GET    /metrics                      → Native Prometheus metrics scraper
      │   Auth    │ │Budget │ │  LLM    │ │Webhooks │ │ Prometheus │
      │   Layer   │ │Engine │ │  Proxy  │ │Discord/ │ │  /metrics  │
      │ API Keys  │ │       │ │Reserve  │ │Slack    │ │            │
-     │ Admin Tok │ │       │ │Stream   │ │HMAC     │ │            │
-     └───────────┘ └───┬───┘ │Finalize │ └─────────┘ └────────────┘
-                       │     └─────────┘
+     │ Admin Tok │ │       │ │Finalize │ │HMAC     │ │            │
+     └───────────┘ └───┬───┘ └─────────┘ └─────────┘ └────────────┘
+                       │
                 ┌──────▼──────────────┐
                 │    SQLite (WAL)     │
                 └─────────────────────┘
