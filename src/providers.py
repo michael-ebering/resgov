@@ -121,6 +121,7 @@ _PROVIDER_EXTRACTORS = {
     "deepseek": extract_deepseek_usage,
     "anthropic": extract_anthropic_usage,
     "google": extract_google_usage,
+    "github-copilot": extract_openai_usage,
 }
 
 _DEFAULT_EXTRACTOR = extract_openai_usage

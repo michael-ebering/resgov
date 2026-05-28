@@ -372,6 +372,26 @@ DEFAULT_PRICE_TABLE = {
     "deepseek/deepseek-chat": {"input": 0.00000027, "output": 0.0000011},
     "google/gemini-2.5-flash": {"input": 0.0000001, "output": 0.0000004},
     "google/gemini-2.5-pro": {"input": 0.00000125, "output": 0.000010},
+    # GitHub Copilot models (OpenAI-compatible, pricing per GitHub Copilot API)
+    "github-copilot/gpt-5.5": {"input": 0.000001, "output": 0.000004},
+    "github-copilot/gpt-5.4": {"input": 0.000001, "output": 0.000003},
+    "github-copilot/gpt-5.4-mini": {"input": 0.0000005, "output": 0.000002},
+    "github-copilot/gpt-5.3-codex": {"input": 0.000001, "output": 0.000003},
+    "github-copilot/gpt-5.2": {"input": 0.000001, "output": 0.000003},
+    "github-copilot/gpt-5-mini": {"input": 0.0000003, "output": 0.0000012},
+    "github-copilot/gpt-4.1": {"input": 0.0000005, "output": 0.000002},
+    "github-copilot/claude-opus-4.7": {"input": 0.000015, "output": 0.000075},
+    "github-copilot/claude-opus-4.6": {"input": 0.000010, "output": 0.000050},
+    "github-copilot/claude-opus-4.5": {"input": 0.000010, "output": 0.000050},
+    "github-copilot/copilot-opus-4.6-fast": {"input": 0.000060, "output": 0.000300},
+    "github-copilot/claude-opus-4.7": {"input": 0.000015, "output": 0.000075},
+    "github-copilot/claude-sonnet-4.6": {"input": 0.000003, "output": 0.000015},
+    "github-copilot/claude-sonnet-4.5": {"input": 0.000003, "output": 0.000015},
+    "github-copilot/claude-haiku-4.5": {"input": 0.00000025, "output": 0.00000125},
+    "github-copilot/gemini-3.5-flash": {"input": 0.0000005, "output": 0.000002},
+    "github-copilot/gemini-3.1-pro": {"input": 0.00000125, "output": 0.000010},
+    "github-copilot/gemini-3-flash": {"input": 0.0000003, "output": 0.000001},
+    "github-copilot/gemini-2.5-pro": {"input": 0.00000125, "output": 0.000010},
     "default": {"input": 0.000001, "output": 0.000003},
 }
 
@@ -558,19 +578,34 @@ async def llm_proxy(
     reserved_cost = reservation["reserved_cost"]
 
     # Phase 2: Forward to upstream provider
-    upstream_url = os.environ.get("RESGOV_UPSTREAM_URL", "https://openrouter.ai/api/v1/chat/completions")
-    upstream_key = os.environ.get("RESGOV_UPSTREAM_API_KEY", "")
+    provider = os.environ.get("RESGOV_PROVIDER", "openrouter")
 
-    if not upstream_key:
-        raise HTTPException(
-            status_code=500,
-            detail="RESGOV_UPSTREAM_API_KEY not configured. Set your OpenRouter/AI provider API key.",
-        )
-
-    headers = {
-        "Authorization": f"Bearer {upstream_key}",
-        "Content-Type": "application/json",
-    }
+    if provider == "github-copilot":
+        upstream_url = "https://api.githubcopilot.com/chat/completions"
+        upstream_key = os.environ.get("GITHUB_COPILOT_TOKEN", "")
+        if not upstream_key:
+            raise HTTPException(
+                status_code=500,
+                detail="GITHUB_COPILOT_TOKEN not configured. Set your GitHub OAuth token.",
+            )
+        headers = {
+            "Authorization": f"Bearer {upstream_key}",
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": "2026-03-10",
+            "Copilot-Integration-Id": "vscode-chat",
+        }
+    else:
+        upstream_url = os.environ.get("RESGOV_UPSTREAM_URL", "https://openrouter.ai/api/v1/chat/completions")
+        upstream_key = os.environ.get("RESGOV_UPSTREAM_API_KEY", "")
+        if not upstream_key:
+            raise HTTPException(
+                status_code=500,
+                detail="RESGOV_UPSTREAM_API_KEY not configured. Set your OpenRouter/AI provider API key.",
+            )
+        headers = {
+            "Authorization": f"Bearer {upstream_key}",
+            "Content-Type": "application/json",
+        }
 
     if is_stream:
         # Streaming: forward chunks, track usage, finalize after stream
