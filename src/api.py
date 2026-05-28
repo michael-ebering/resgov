@@ -367,16 +367,42 @@ def _get_price_table() -> dict:
             pass
     return DEFAULT_PRICE_TABLE
 
-def _estimate_max_cost(model: str, max_tokens: int, price_table: dict,
-                        prompt: Optional[str] = None) -> float:
-    """Estimate worst-case cost for a request.
-    
-    Includes input token estimation from prompt length (rough: 4 chars ≈ 1 token).
+def _estimate_input_tokens(messages: list) -> int:
+    """Estimate token count from messages with content-type awareness.
+
+    Heuristics:
+    - English prose: ~4 chars/token
+    - German text (more compound words): ~3.2 chars/token
+    - JSON/Code (high special-char ratio): ~2.5 chars/token
+    - Empty/minimal: 128 token minimum
     """
+    text = " ".join(m.get("content", "") for m in messages)
+    text_len = len(text)
+    if not text_len:
+        return 128
+
+    special_ratio = sum(1 for c in text if c in "{[]}()=:;/") / text_len
+    german_ratio = sum(1 for c in text.lower() if c in "äöüß") / text_len
+
+    if special_ratio > 0.05:
+        return max(text_len // 3, 128)
+    elif german_ratio > 0.02:
+        return max(int(text_len / 3.2), 128)
+    else:
+        return max(text_len // 4, 128)
+
+
+def _estimate_max_cost(model: str, max_tokens: int, price_table: dict,
+                        prompt: Optional[str] = None, messages: Optional[list] = None) -> float:
+    """Estimate worst-case cost for a request."""
     pricing = price_table.get(model, price_table.get("default", {"input": 0.000001, "output": 0.000003}))
-    # Estimate input tokens from prompt length
-    input_tokens = len(prompt) // 4 if prompt else 512  # rough estimate
-    # Worst case: all output tokens at max_tokens
+    # Estimate input tokens from messages or prompt string
+    if messages:
+        input_tokens = _estimate_input_tokens(messages)
+    elif prompt:
+        input_tokens = _estimate_input_tokens([{"content": prompt}])
+    else:
+        input_tokens = 512
     input_cost = input_tokens * pricing.get("input", 0.000001)
     output_cost = max_tokens * pricing.get("output", 0.000003)
     return round(input_cost + output_cost, 6)
@@ -430,11 +456,7 @@ async def llm_proxy(
 
     # Calculate max cost for reservation
     price_table = _get_price_table()
-    # Extract prompt for cost estimation (first user message)
-    _prompt_text = ""
-    for msg in body.get("messages", []):
-        _prompt_text += msg.get("content", "")
-    max_cost = _estimate_max_cost(model, max_tokens, price_table, _prompt_text if _prompt_text else None)
+    max_cost = _estimate_max_cost(model, max_tokens, price_table, messages=body.get("messages", []))
 
     # Phase 1: Reserve budget (milliseconds lock)
     engine = BudgetEngine(rgf_config=RGF_CONFIG)
@@ -502,10 +524,19 @@ async def llm_proxy(
                         yield chunk
             finally:
                 # Phase 3: Finalize budget
-                # Streaming backends rarely send usage in chunks — fallback to max_tokens
+                # Streaming backends rarely send usage in chunks — fallback to estimation
+                pricing = price_table.get(model, price_table["default"])
                 if actual_tokens == 0:
-                    actual_tokens = max_tokens
-                actual_cost = round(actual_tokens * price_table.get(model, price_table["default"])["output"], 6)
+                    # Fallback: estimate from messages + max_tokens
+                    input_tokens = _estimate_input_tokens(body.get("messages", []))
+                    output_tokens = max_tokens
+                else:
+                    # We got total_tokens from stream — rough split (assume 30% input, 70% output)
+                    input_tokens = int(actual_tokens * 0.3)
+                    output_tokens = int(actual_tokens * 0.7)
+                input_cost = round(input_tokens * pricing.get("input", 0.000001), 6)
+                output_cost = round(output_tokens * pricing.get("output", 0.000003), 6)
+                actual_cost = round(input_cost + output_cost, 6)
                 # finalize is fire-and-forget — never let it break the response
                 try:
                     engine.finalize_budget(x_resgov_agent_id, reserved_cost, actual_cost)
@@ -526,13 +557,36 @@ async def llm_proxy(
             resp = await _httpx_client.post(upstream_url, json=body, headers=headers)
             resp_data = resp.json()
 
-            # Extract usage
+            # Extract usage — separate input/output tokens
             usage = resp_data.get("usage", {})
-            actual_tokens = usage.get("total_tokens", max_tokens)
-            actual_cost = round(actual_tokens * price_table.get(model, price_table["default"])["output"], 6)
+            pricing = price_table.get(model, price_table["default"])
+
+            input_tokens = (
+                usage.get("prompt_tokens")
+                or usage.get("input_tokens")
+                or _estimate_input_tokens(body.get("messages", []))
+            )
+            output_tokens = (
+                usage.get("completion_tokens")
+                or usage.get("output_tokens")
+                or max_tokens
+            )
+
+            input_cost = round(input_tokens * pricing.get("input", 0.000001), 6)
+            output_cost = round(output_tokens * pricing.get("output", 0.000003), 6)
+            actual_cost = round(input_cost + output_cost, 6)
 
             # Phase 3: Finalize
             engine.finalize_budget(x_resgov_agent_id, reserved_cost, actual_cost)
+
+            # Inject cost info into response for transparency
+            resp_data["resgov_cost"] = {
+                "estimated": reserved_cost,
+                "actual": actual_cost,
+                "refund": round(reserved_cost - actual_cost, 6),
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+            }
 
             return JSONResponse(content=resp_data)
         except Exception as e:

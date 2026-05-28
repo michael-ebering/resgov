@@ -328,6 +328,8 @@ class BudgetEngine:
                     "resource_type": b["resource_type"],
                     "action": b["action"],
                     "cost": b["cost"],
+                    "estimated_cost": b["estimated_cost"],
+                    "actual_cost": b["actual_cost"],
                     "status": b["status"],
                     "denial_reason": b["denial_reason"],
                     "created_at": b["created_at"],
@@ -580,10 +582,10 @@ class BudgetEngine:
                 )
 
             cursor = db.execute(
-                """INSERT INTO bookings (agent_id, resource_type, action, cost, metadata, status, created_at)
-                   VALUES (?, 'llm_call', 'proxy_reserve', ?, '{}', 'reserved', ?)
+                """INSERT INTO bookings (agent_id, resource_type, action, cost, estimated_cost, metadata, status, created_at)
+                   VALUES (?, 'llm_call', 'proxy_reserve', ?, ?, '{}', 'reserved', ?)
                    RETURNING id""",
-                (agent_id, max_cost, now),
+                (agent_id, max_cost, max_cost, now),
             )
             booking_id = cursor.fetchone()[0]
 
@@ -664,9 +666,10 @@ class BudgetEngine:
                     )
 
             db.execute(
-                """INSERT INTO bookings (agent_id, resource_type, action, cost, metadata, status, created_at)
-                   VALUES (?, 'llm_call', 'proxy_finalize', ?, ?, 'success', ?)""",
-                (agent_id, actual_cost, json.dumps({"reserved": reserved_cost, "refund": refund}), now),
+                """INSERT INTO bookings (agent_id, resource_type, action, cost, estimated_cost, actual_cost, metadata, status, created_at)
+                   VALUES (?, 'llm_call', 'proxy_finalize', ?, ?, ?, ?, 'success', ?)""",
+                (agent_id, actual_cost, reserved_cost, actual_cost,
+                 json.dumps({"reserved": reserved_cost, "refund": refund}), now),
             )
 
             # Close the most recent active reservation for this agent

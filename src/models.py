@@ -66,6 +66,8 @@ def init_db(db: Optional[sqlite3.Connection] = None):
             resource_type TEXT NOT NULL CHECK(resource_type IN ('api_call', 'compute', 'storage', 'custom', 'llm_call')),
             action TEXT NOT NULL,
             cost REAL NOT NULL DEFAULT 0.0,
+            estimated_cost REAL,
+            actual_cost REAL,
             metadata TEXT DEFAULT '{}',
             status TEXT NOT NULL DEFAULT 'success' CHECK(status IN ('success', 'denied', 'error', 'reserved')),
             denial_reason TEXT,
