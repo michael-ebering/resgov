@@ -51,8 +51,9 @@ def fetch_prices_from_openrouter() -> dict:
         if not model_id or not pricing:
             continue
         try:
-            input_price = float(pricing.get("input", 0))
-            output_price = float(pricing.get("output", 0))
+            # OpenRouter returns pricing as strings with keys "prompt"/"completion"
+            input_price = float(pricing.get("prompt", pricing.get("input", 0)))
+            output_price = float(pricing.get("completion", pricing.get("output", 0)))
             if input_price > 0 or output_price > 0:
                 prices[model_id] = {"input": input_price, "output": output_price}
         except (ValueError, TypeError):
