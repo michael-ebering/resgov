@@ -241,8 +241,8 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
     <input type="email" id="lead-email" placeholder="your@email.com" required>
     <button type="button" id="lead-btn" onclick="submitLead()">Join Waitlist</button>
   </form>
-  <div id="lead-msg" style="margin-top:1rem;font-size:0.85rem;display:none;align-items:center;justify-content:center;gap:0.5rem">
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#4CAF50"/><path d="M6 10.5l3 3 5-6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  <div id="lead-msg" style="margin-top:1rem;font-size:1rem;display:none;align-items:center;justify-content:center;gap:0.6rem;color:#fff;font-weight:600">
+    <span style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;min-width:32px;border-radius:50%;background:#4CAF50;color:#fff;font-size:18px;line-height:1">✓</span>
     <span id="lead-msg-text"></span>
   </div>
   <p style="margin-top:1.5rem;font-size:0.8rem;color:var(--muted)">Or: <code>git clone https://github.com/michael-ebering/resgov.git &amp;&amp; docker compose up</code></p>
@@ -297,14 +297,10 @@ async function submitLead(){
     }else{
       const d=await r.json();
       msgText.textContent=(d.error||'Something went wrong');
-      msg.querySelector('svg').style.display='none';
-      msg.style.color='var(--accent)';
       msg.style.display='flex';
     }
   }catch(e){
     msgText.textContent='Network error — please try again.';
-    msg.querySelector('svg').style.display='none';
-    msg.style.color='var(--accent)';
     msg.style.display='flex';
   }
   btn.disabled=false;btn.textContent='Join Waitlist';
