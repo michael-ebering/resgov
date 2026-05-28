@@ -306,8 +306,26 @@ async def get_price_cache_status(_=Depends(require_admin)):
 
 @app.post("/api/v1/admin/price-cache/refresh")
 async def trigger_price_cache_refresh(_=Depends(require_admin)):
-    """Manually trigger a price cache refresh."""
-    from .price_cache import refresh_price_cache
+    """Manually trigger a price cache refresh from OpenRouter.
+
+    Rate-limited to once per 5 minutes. Returns fetch summary.
+    """
+    from .price_cache import refresh_price_cache, CACHE_TTL_HOURS
+    from .models import get_db
+
+    # Rate limit: skip if refreshed within last 5 minutes
+    db = get_db()
+    latest = db.execute("SELECT MAX(fetched_at) as ts FROM price_cache").fetchone()["ts"]
+    if latest:
+        from datetime import datetime, timezone
+        try:
+            age = (datetime.now(timezone.utc) - datetime.fromisoformat(latest)).total_seconds()
+            if age < 300:
+                remaining = int(300 - age)
+                return {"status": "rate_limited", "retry_after_seconds": remaining, "message": f"Cache refreshed {int(age)}s ago. Retry in {remaining}s."}
+        except Exception:
+            pass
+
     result = refresh_price_cache()
     return result
 
