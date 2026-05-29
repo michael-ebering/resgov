@@ -182,7 +182,7 @@ flowchart TD
 - [ ] Enterprise SSO / SAML & RBAC
 
 ## 📄 Lizenz
-Business Source License 1.1 (BSL-1.1). Kostenlos für persönliche Nutzung und Unternehmen mit < $1M ARR. Wechsel zu Apache 2.0 am 1. Januar 2029.
+Business Source License 1.1 (BSL-1.1). Kostenlos für persönliche Nutzung und Unternehmen mit < $1M ARR. Wechsel zu Apache 2.0 am 31. Mai 2029.
 
 <div align="center">
 <sub>Gebaut von SilentOps mit Fokus auf Korrektheit, Geschwindigkeit und Kostensicherungen.</sub>

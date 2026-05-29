@@ -220,7 +220,7 @@ flowchart TD
 This project is licensed under the Business Source License 1.1 (BSL-1.1).
 *   Free forever for personal use, testing, and internal non-commercial setups.
 *   Free forever for production scale in companies making < $1M ARR.
-*   Change Date: Automatically transitions into an open-source Apache 2.0 License on January 1, 2029.
+*   Change Date: Automatically transitions into an open-source Apache 2.0 License on May 31, 2029.
 
 <div align="center">
 <sub>Built by SilentOps with strict focus on correctness, speed, and cost guardrails.</sub>
