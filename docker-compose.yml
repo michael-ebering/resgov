@@ -5,6 +5,8 @@ services:
     restart: unless-stopped
     networks:
       - resgov_default
+    ports:
+      - "127.0.0.1:8080:8080"
     expose:
       - "8080"
     volumes:
