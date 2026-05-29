@@ -9,6 +9,14 @@
 - Docker & Docker Compose (for containerized setup)
 - An OpenRouter API key (for LLM proxy testing)
 
+## Quick Start (One-Line Installer)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/michael-ebering/resgov/main/install.sh | bash
+```
+
+This clones the repo, creates `.env`, generates an admin token, and starts the container.
+
 ## Quick Start (Local Dev, No Docker)
 
 ```bash
@@ -202,5 +210,8 @@ curl http://localhost:8080/v1/chat/completions \
 - [README.md](README.md) — Full feature documentation & architecture
 - [CONTRIBUTING.md](CONTRIBUTING.md) — Code style & PR process
 - [CHANGELOG.md](CHANGELOG.md) — Version history
+- [DEPLOYMENT.md](DEPLOYMENT.md) — Production deployment (Traefik, HTTPS, backups, monitoring)
+- [docs/adr.md](docs/adr.md) — Architecture Decision Records
+- [docs/rgf-examples.md](docs/rgf-examples.md) — `.rgf` configuration examples
 - [API Docs (Swagger)](http://localhost:8080/docs) — Interactive endpoint reference
 - [Hermes Agent Docs](https://hermes-agent.nousresearch.com/docs) — If using ResGov as a Hermes proxy

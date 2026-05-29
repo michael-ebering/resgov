@@ -62,7 +62,7 @@ fail_safe_action = "deny" # Hard block if proxy connectivity drops
 [agents.hermes]
 daily_budget = 3.00
 max_tokens_per_request = 4096
-allowed_models = ["anthropic/claude-sonnet-4", "deepseek-v4"]
+allowed_models = ["anthropic/claude-sonnet-4-6", "openrouter/deepseek/deepseek-v4-flash"]
 
 [agents.research-bot]
 daily_budget = 1.00
@@ -163,10 +163,11 @@ POST /api/v1/book
 }
 
 # Admin Operations (Requires X-Admin-Token)
-POST   /api/v1/admin/reset-daily     → Reset all daily allocations
-POST   /api/v1/admin/generate-key    → Issue a new secure API Key
-GET    /api/v1/audit                 → Paginated system audit trail
-GET    /metrics                      → Native Prometheus metrics scraper
+POST   /api/v1/admin/reset-daily          → Reset all daily allocations
+POST   /api/v1/admin/generate-key         → Issue a new secure API Key
+POST   /api/v1/admin/price-cache/refresh  → Refresh model price cache from OpenRouter
+GET    /api/v1/audit                      → Paginated system audit trail
+GET    /metrics                           → Native Prometheus metrics scraper
 ```
 
 ## 🏗️ Architecture & Production Design
@@ -194,6 +195,13 @@ flowchart TD
 *   **Crash Recovery Guard:** Stuck reservations automatically decay and revert after 5 minutes if an agent execution script crashes mid-stream.
 
 ## 🗺️ Roadmap
+
+**Documentation:**
+- [Interactive API Docs (Swagger)](http://localhost:8080/docs) · [ReDoc](http://localhost:8080/redoc)
+- [ONBOARDING.md](ONBOARDING.md) — Developer quick-start guide
+- [DEPLOYMENT.md](DEPLOYMENT.md) — Production deployment guide (Traefik, HTTPS, backups)
+- [docs/adr.md](docs/adr.md) — Architecture Decision Records
+- [docs/rgf-examples.md](docs/rgf-examples.md) — `.rgf` configuration examples for 7 scenarios
 
 ### v0.5 (Next)
 *   [ ] Redis/Dragonfly Backend for horizontal multi-instance proxy scaling.
