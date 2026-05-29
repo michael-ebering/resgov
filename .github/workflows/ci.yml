@@ -62,7 +62,7 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
-            cd /opt/resgov
+            cd /root/documents/resgov
             git pull --rebase origin main
             docker compose build --no-cache resgov
             docker compose up -d resgov
