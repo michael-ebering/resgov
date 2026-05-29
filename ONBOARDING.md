@@ -213,5 +213,5 @@ curl http://localhost:8080/v1/chat/completions \
 - [DEPLOYMENT.md](DEPLOYMENT.md) — Production deployment (Traefik, HTTPS, backups, monitoring)
 - [docs/adr.md](docs/adr.md) — Architecture Decision Records
 - [docs/rgf-examples.md](docs/rgf-examples.md) — `.rgf` configuration examples
-- [API Docs (Swagger)](http://localhost:8080/docs) — Interactive endpoint reference
+- [API Docs (Swagger)](http://localhost:8080/docs) · [Live API Docs](https://api.resgov.silentops.cloud/docs) — Interactive endpoint reference
 - [Hermes Agent Docs](https://hermes-agent.nousresearch.com/docs) — If using ResGov as a Hermes proxy

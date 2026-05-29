@@ -100,7 +100,7 @@ docker compose up -d
 from crewai import Agent, LLM
 llm = LLM(
     model="openai/anthropic/claude-sonnet-4-6",
-    base_url="http://localhost:8080/v1",
+    base_url="https://api.resgov.silentops.cloud/v1",
     api_key="dein-rgf-api-key",
     extra_headers={"X-ResGov-Agent-ID": "hermes"},
 )
@@ -111,7 +111,7 @@ llm = LLM(
 from langchain_openai import ChatOpenAI
 llm = ChatOpenAI(
     model="anthropic/claude-sonnet-4-6",
-    base_url="http://localhost:8080/v1",
+    base_url="https://api.resgov.silentops.cloud/v1",
     api_key="dein-rgf-api-key",
     default_headers={"X-ResGov-Agent-ID": "hermes"},
 )

@@ -103,9 +103,9 @@ cd resgov
 cp .env.example .env          # Set your RESGOV_ADMIN_TOKEN
 docker compose up -d
 
-# Core Proxy API: http://localhost:8080/v1
+# Core Proxy API: https://api.resgov.silentops.cloud/v1
 # Dashboard:      http://localhost:8080/dash
-# Health V2:      http://localhost:8080/health
+# Health V2:      https://api.resgov.silentops.cloud/health
 ```
 
 ### 2. Plug it into your Framework (No Custom Code)
@@ -116,7 +116,7 @@ from crewai import Agent, LLM
 
 llm = LLM(
     model="openai/anthropic/claude-sonnet-4",
-    base_url="http://localhost:8080/v1", # Routes through ResGov
+    base_url="https://api.resgov.silentops.cloud/v1", # Routes through ResGov
     api_key="your-rgf-api-key",
     extra_headers={"X-ResGov-Agent-ID": "hermes"},
 )
@@ -130,7 +130,7 @@ from langchain_openai import ChatOpenAI
 
 llm = ChatOpenAI(
     model="anthropic/claude-sonnet-4",
-    base_url="http://localhost:8080/v1",
+    base_url="https://api.resgov.silentops.cloud/v1",
     api_key="your-rgf-api-key",
     default_headers={"X-ResGov-Agent-ID": "hermes"},
 )
@@ -197,7 +197,7 @@ flowchart TD
 ## 🗺️ Roadmap
 
 **Documentation:**
-- [Interactive API Docs (Swagger)](http://localhost:8080/docs) · [ReDoc](http://localhost:8080/redoc)
+- [Interactive API Docs (Swagger)](https://api.resgov.silentops.cloud/docs) · [ReDoc](https://api.resgov.silentops.cloud/redoc)
 - [ONBOARDING.md](ONBOARDING.md) — Developer quick-start guide
 - [DEPLOYMENT.md](DEPLOYMENT.md) — Production deployment guide (Traefik, HTTPS, backups)
 - [docs/adr.md](docs/adr.md) — Architecture Decision Records
