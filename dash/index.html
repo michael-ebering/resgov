@@ -3,198 +3,169 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>RGF Dashboard — Resource Governance Framework</title>
+<title>RGF Dashboard \u2014 Resource Governance Framework</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#0a0a0f;--card:#15151f;--border:#2a2a3c;--text:#e4e4e7;--muted:#a1a1aa;--accent:#f97316;--accent-glow:rgba(249,115,22,0.15);--green:#4ade80;--red:#f87171;--lila:#b99bff;--yellow:#fbbf24}
-body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6}
-.header{display:flex;justify-content:space-between;align-items:center;padding:1.25rem 2rem;border-bottom:1px solid var(--border)}
-.header h1{font-size:1.25rem;font-weight:700}
+body{font-family:Inter,system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6}
+.header{display:flex;justify-content:space-between;align-items:center;padding:1rem 2rem;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:.75rem}
+.header h1{font-size:1.2rem;font-weight:700}
 .header h1 span{color:var(--accent)}
-.header .meta{font-size:0.8rem;color:var(--muted)}
+.header .meta{font-size:.75rem;color:var(--muted)}
+.header-right{display:flex;align-items:center;gap:1rem}
+.lbadge{display:inline-flex;align-items:center;gap:.35rem;padding:.25rem .65rem;border-radius:6px;font-size:.7rem;font-weight:600}
+.lbadge.on{background:rgba(74,222,128,.12);color:var(--green);border:1px solid rgba(74,222,128,.2)}
+.lbadge.off{background:rgba(248,113,113,.12);color:var(--red);border:1px solid rgba(248,113,113,.2)}
+.lbadge .dot{width:5px;height:5px;border-radius:50%;background:currentColor}
+.tabs{display:flex;gap:.25rem;padding:0 2rem;background:var(--card);border-bottom:1px solid var(--border)}
+.tab{padding:.75rem 1.25rem;font-size:.85rem;color:var(--muted);cursor:pointer;border:none;background:none;font-family:inherit;border-bottom:2px solid transparent;transition:all .2s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tc{display:none}.tc.active{display:block}
 .container{max-width:1200px;margin:0 auto;padding:2rem}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:2rem}
 .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1.25rem}
-.card-label{font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem}
-.card-value{font-size:1.75rem;font-weight:700}
-.card-value.green{color:var(--green)}
-.card-value.red{color:var(--red)}
-.card-value.accent{color:(--accent)}
-.card-sub{font-size:0.75rem;color:var(--muted);margin-top:0.25rem}
-.section{margin-bottom:2rem}
-.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem}
-.section h2{font-size:1.1rem;font-weight:600}
-.refresh-badge{font-size:0.7rem;color:(--muted);display:flex;align-items:center;gap:0.4rem}
-.refresh-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
-.table-wrap{overflow-x:auto}
-table{width:100%;border-collapse:collapse;font-size:0.85rem}
-th{text-align:left;padding:0.75rem;color:var(--muted);font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid var(--border)}
-td{padding:0.75rem;border-bottom:1px solid rgba(42,42,60,0.5)}
-tr:hover td{background:rgba(249,115,22,0.03)}
-.badge{display:inline-block;padding:0.15rem 0.5rem;border-radius:4px;font-size:0.7rem;font-weight:600}
-.badge-success{background:rgba(74,222,128,0.15);color:var(--green)}
-.badge-danger{background:rgba(248,113,113,0.15);color:var(--red)}
-.badge-warning{background:rgba(251,191,36,0.15);color:var(--yellow)}
-.badge-neutral{background:rgba(161,161,170,0.15);color:var(--muted)}
-.budget-bar{height:6px;border-radius:3px;background:var(--border);overflow:hidden;margin-top:0.3rem}
-.budget-bar-fill{height:100%;border-radius:3px;transition:width 0.5s}
-.budget-bar-fill.green{background:var(--green)}
-.budget-bar-fill.yellow{background:var(--yellow)}
-.budget-bar-fill.red{background:var(--red)}
-.agent-name{font-weight:600}
-.agent-id{font-size:0.75rem;color:var(--muted);font-family:monospace}
-.empty-state{text-align:center;padding:3rem;color:var(--muted);font-size:0.9rem}
-.loading{display:flex;align-items:center;justify-content:center;padding:3rem;color:var(--muted)}
-.loading::after{content:'';width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin-left:0.75rem}
+.cl{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem}
+.cv{font-size:1.75rem;font-weight:700}
+.cv.g{color:var(--green)}.cv.r{color:var(--red)}.cv.a{color:var(--accent)}
+.cs{font-size:.75rem;color:var(--muted);margin-top:.25rem}
+.sec{margin-bottom:2rem}
+.sh{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:.75rem}
+.sec h2{font-size:1.1rem;font-weight:600}
+.btn{display:inline-flex;align-items:center;gap:.4rem;padding:.5rem 1rem;border-radius:6px;font-size:.8rem;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .2s}
+.bp{background:var(--accent);color:#fff}.bp:hover{background:#ea580c}
+.bs{background:var(--card);color:var(--text);border:1px solid var(--border)}.bs:hover{background:var(--border)}
+.bd{background:rgba(248,113,113,.12);color:var(--red);border:1px solid rgba(248,113,113,.2)}.bd:hover{background:rgba(248,113,113,.2)}
+.bxs{padding:.35rem .75rem;font-size:.75rem}
+.rb{font-size:.7rem;color:var(--muted);display:flex;align-items:center;gap:.4rem}
+.rb .dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{text-align:left;padding:.75rem;color:var(--muted);font-weight:600;font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border)}
+td{padding:.75rem;border-bottom:1px solid rgba(42,42,60,.5)}
+tr:hover td{background:rgba(249,115,22,.03)}
+.badge{display:inline-block;padding:.15rem .5rem;border-radius:4px;font-size:.7rem;font-weight:600}
+.bs{background:rgba(74,222,128,.15);color:var(--green)}
+.bd{background:rgba(248,113,113,.15);color:var(--red)}
+.bw{background:rgba(251,191,36,.15);color:var(--yellow)}
+.bn{background:rgba(161,161,170,.15);color:var(--muted)}
+.bi{background:rgba(185,155,255,.15);color:var(--lila)}
+.bbar{height:6px;border-radius:3px;background:var(--border);overflow:hidden;margin-top:.3rem}
+.bbf{height:100%;border-radius:3px;transition:width .5s}
+.bbf.g{background:var(--green)}.bbf.y{background:var(--yellow)}.bbf.r{background:var(--red)}
+.an{font-weight:600}
+.ai{font-size:.75rem;color:var(--muted);font-family:monospace}
+.es{text-align:center;padding:3rem;color:var(--muted);font-size:.9rem}
+.ld{display:flex;align-items:center;justify-content:center;padding:3rem;color:var(--muted)}
+.ld::after{content:\x27\x27;width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin-left:.75rem}
 @keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
 <div class="header">
   <h1><span>RGF</span> Dashboard</h1>
-  <div class="meta">Resource Governance Framework v0.4.0 · <span id="lastUpdate">—</span></div>
+  <div class="header-right">
+    <div class="lbadge off" id="lb"><span class="dot"></span> No License</div>
+    <div class="meta">v0.4.4 \u00b7 <span id="lu">\u2014</span></div>
+  </div>
 </div>
-<div class="container">
-
-  <div class="cards">
-    <div class="card">
-      <div class="card-label">Total Agents</div>
-      <div class="card-value" id="statAgents">—</div>
-      <div class="card-sub" id="statAgentsActive">— active (24h)</div>
-    </div>
-    <div class="card">
-      <div class="card-label">Total Bookings</div>
-      <div class="card-value accent" id="statBookings">—</div>
-      <div class="card-sub" id="statBookingsDenied">— denied</div>
-    </div>
-    <div class="card">
-      <div class="card-label">Total Spent</div>
-      <div class="card-value green" id="statSpent">—</div>
-      <div class="card-sub" id="statRefunded">— refunded</div>
-    </div>
-    <div class="card">
-      <div class="card-label">Denials (24h)</div>
-      <div class="card-value red" id="statDenials24h">—</div>
-      <div class="card-sub">budget exceeded</div>
+<div class="tabs">
+  <button class="tab active" onclick="sw(\x27overview\x27)">Overview</button>
+  <button class="tab" onclick="sw(\x27agents\x27)">Agents</button>
+  <button class="tab" onclick="sw(\x27bookings\x27)">Bookings</button>
+  <button class="tab" onclick="sw(\x27license\x27)">License</button>
+</div>
+<div class="tc active" id="t-overview">
+  <div class="container">
+    <div class="cards">
+      <div class="card"><div class="cl">Total Agents</div><div class="cv" id="s1">\u2014</div><div class="cs" id="s1a">\u2014 active (24h)</div></div>
+      <div class="card"><div class="cl">Total Bookings</div><div class="cv a" id="s2">\u2014</div><div class="cs" id="s2a">\u2014 denied</div></div>
+      <div class="card"><div class="cl">Total Spent</div><div class="cv g" id="s3">\u2014</div><div class="cs" id="s3a">\u2014 refunded</div></div>
+      <div class="card"><div class="cl">Denials (24h)</div><div class="cv r" id="s4">\u2014</div><div class="cs">budget exceeded</div></div>
     </div>
   </div>
-
-  <div class="section">
-    <div class="section-header">
-      <h2>Agents</h2>
-      <div class="refresh-badge"><span class="dot"></span> Live</div>
-    </div>
-    <div class="table-wrap">
-      <div class="loading" id="agentsLoading">Loading agents</div>
-      <table id="agentsTable" style="display:none">
-        <thead><tr><th>Agent</th><th>Daily Budget</th><th>Monthly Budget</th><th>Spent</th><th>Status</th></tr></thead>
-        <tbody id="agentsBody"></tbody>
-      </table>
-      <div class="empty-state" id="agentsEmpty" style="display:none">No agents registered yet. <br><code>POST /api/v1/agents</code> to get started.</div>
+</div>
+<div class="tc" id="t-agents">
+  <div class="container">
+    <div class="sec">
+      <div class="sh"><h2>All Agents</h2><div class="rb"><span class="dot"></span> Live</div></div>
+      <div class="tw">
+        <div class="ld" id="al">Loading agents</div>
+        <table id="at" style="display:none"><thead><tr><th>Agent</th><th>Daily</th><th>Spent</th><th>Status</th></tr></thead><tbody id="ab"></tbody></table>
+        <div class="es" id="ae" style="display:none">No agents registered yet. <code>POST /api/v1/agents</code> to get started.</div>
+      </div>
     </div>
   </div>
-
-  <div class="section">
-    <div class="section-header">
-      <h2>Recent Bookings</h2>
-    </div>
-    <div class="table-wrap">
-      <div class="loading" id="bookingsLoading">Loading bookings</div>
-      <table id="bookingsTable" style="display:none">
-        <thead><tr><th>Time</th><th>Agent</th><th>Resource</th><th>Cost</th><th>Status</th></tr></thead>
-        <tbody id="bookingsBody"></tbody>
-      </table>
-      <div class="empty-state" id="bookingsEmpty" style="display:none">No bookings yet.</div>
+</div>
+<div class="tc" id="t-bookings">
+  <div class="container">
+    <div class="sec">
+      <div class="sh"><h2>Recent Bookings</h2><div class="rb"><span class="dot"></span> Live</div></div>
+      <div class="tw">
+        <div class="ld" id="bl">Loading bookings</div>
+        <table id="bt" style="display:none"><thead><tr><th>Time</th><th>Agent</th><th>Resource</th><th>Cost</th><th>Status</th></tr></thead><tbody id="bb"></tbody></table>
+        <div class="es" id="be" style="display:none">No bookings yet.</div>
+      </div>
     </div>
   </div>
-
+</div>
+<div class="tc" id="t-license">
+  <div class="container">
+    <div class="cards">
+      <div class="card"><div class="cl">License Status</div><div class="cv" id="ls" style="font-size:1.2rem">\u2014</div><div class="cs" id="lp">\u2014</div></div>
+      <div class="card"><div class="cl">Max Agents</div><div class="cv a" id="la">\u2014</div><div class="cs" id="lo">\u2014 orgs</div></div>
+      <div class="card"><div class="cl">Valid Until</div><div class="cv g" id="lv">\u2014</div><div class="cs" id="le">\u2014</div></div>
+    </div>
+    <div class="sec">
+      <div class="sh"><h2>Generate License Key</h2></div>
+      <div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end">
+        <div><label style="font-size:.75rem;color:var(--muted)">Product Tier</label><br>
+        <select id="gpt" style="padding:.5rem;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:.85rem;font-family:inherit">
+          <option value="community">Community (5 agents, lifetime)</option>
+          <option value="pro">Pro (50 agents, 1 year)</option>
+          <option value="enterprise">Enterprise (unlimited, 1 year)</option>
+        </select></div>
+        <div><label style="font-size:.75rem;color:var(--muted)">Owner Email</label><br>
+        <input type="email" id="ge" placeholder="customer@email.com" style="padding:.5rem;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:.85rem;font-family:inherit;min-width:220px"></div>
+        <button class="btn bp" onclick="genLic()">Generate Key</button>
+      </div>
+      <div id="kd" style="display:none">
+        <p style="font-size:.85rem;color:var(--yellow);margin-top:1rem;font-weight:600">\u26a0 Save this key \u2014 it won\x27t be shown again:</p>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.75rem;font-family:monospace;font-size:.8rem;word-break:break-all;margin:.75rem 0;color:var(--yellow)" id="kv"></div>
+        <button class="btn bs bxs" onclick="copyKey()">Copy to Clipboard</button>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="sh"><h2>All Licenses</h2><button class="btn bs bxs" onclick="loadLic()">Refresh</button></div>
+      <div class="tw">
+        <div class="ld" id="ll">Loading licenses</div>
+        <table id="lt" style="display:none"><thead><tr><th>ID</th><th>Product</th><th>Max Agents</th><th>Owner</th><th>Status</th><th>Valid Until</th><th>Actions</th></tr></thead><tbody id="lb2"></tbody></table>
+        <div class="es" id="le2" style="display:none">No licenses created yet.</div>
+      </div>
+    </div>
+  </div>
 </div>
 <script>
-const API = '';
-
+const API=\x27\x27;
+function sw(n){document.querySelectorAll(\x27.tab\x27).forEach(t=>t.classList.remove(\x27active\x27));document.querySelectorAll(\x27.tc\x27).forEach(t=>t.classList.remove(\x27active\x27));document.querySelector(\x27.tab[onclick*="\x27+n+\x27"]\x27)?.classList.add(\x27active\x27));document.getElementById(\x27t-\x27+n)?.classList.add(\x27active\x27);if(n===\x27license\x27)loadLic()}
 function fmt(n,d=2){return Number(n||0).toFixed(d)}
-function timeAgo(d){const s=Math.floor((Date.now()-new Date(d).getTime())/1000);if(s<60)return s+'s ago';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago'}
-function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
-
-async function fetchJSON(url){
-  const r = await fetch(url);
-  if(r.status===401){document.body.innerHTML='<div style="padding:2rem;text-align:center"><h2>Authentication Required</h2><p>Set RESGOV_DASH_USER and RESGOV_DASH_PASS environment variables.</p></div>';throw new Error('auth');}
-  return r.json();
-}
-
-function budgetBar(used,limit){
-  if(!limit||limit<=0)return '';
-  const pct=Math.min(100,(used/limit)*100);
-  const cls=pct>80?'red':pct>50?'yellow':'green';
-  return `<div class="budget-bar"><div class="budget-bar-fill ${cls}" style="width:${pct}%"></div></div>`;
-}
-
-async function loadStats(){
-  try{
-    const d=await fetchJSON(API+'/dash/api/stats');
-    document.getElementById('statAgents').textContent=d.agents.total;
-    document.getElementById('statAgentsActive').textContent=d.agents.active_24h+' active (24h)';
-    document.getElementById('statBookings').textContent=d.bookings.total;
-    document.getElementById('statBookingsDenied').textContent=d.bookings.denied+' denied';
-    document.getElementById('statSpent').textContent='$'+fmt(d.costs.total_spent);
-    document.getElementById('statRefunded').textContent='$'+fmt(d.costs.total_refunded)+' refunded';
-    document.getElementById('statDenials24h').textContent=d.bookings.denied_24h;
-  }catch(e){if(e.message!=='auth')console.error(e)}
-}
-
-async function loadAgents(){
-  try{
-    const d=await fetchJSON(API+'/dash/api/agents');
-    const tbody=document.getElementById('agentsBody');
-    tbody.innerHTML='';
-    if(!d.length){document.getElementById('agentsLoading').style.display='none';document.getElementById('agentsEmpty').style.display='block';return}
-    for(const a of d){
-      const dailyUsed=(a.daily_limit-a.daily_remaining)||0;
-      const monthlyUsed=(a.monthly_limit-a.monthly_remaining)||0;
-      const badge=a.status==='active'?'<span class="badge badge-success">active</span>':'<span class="badge badge-neutral">'+esc(a.status)+'</span>';
-      tbody.innerHTML+=`<tr>
-        <td><div class="agent-name">`+esc(a.name)+`</div><div class="agent-id">`+esc(a.agent_id)+`</div></td>
-        <td>$`+fmt(a.daily_used)+` / $`+fmt(a.daily_limit)+`<br>`+budgetBar(dailyPer,a.daily_limit)+`</td>
-        <td>$`+fmt(monthlyUsed)+` / $`+fmt(a.monthly_limit)+`<br>`+budgetBar(monthlyUsed,a.monthly_limit)+`</td>
-        <td>$`+fmt(a.total_spent)+`</td>
-        <td>`+badge+`</td>
-      </tr>`;
-    }
-    document.getElementById('agentsLoading').style.display='none';
-    document.getElementById('agentsTable').style.display='table';
-  }catch(e){if(e.message!=='auth')console.error(e)}
-}
-
-async function loadBookings(){
-  try{
-    const d=await fetchJSON(API+'/dash/api/bookings?limit=25');
-    const tbody=document.getElementById('bookingsBody');
-    tbody.innerHTML='';
-    if(!d.length){document.getElementById('bookingsLoading').style.display='none';document.getElementById('bookingsEmpty').style.display='block';return}
-    for(const b of d){
-      const badge=b.status==='completed'?'<span class="badge badge-success">completed</span>':b.status==='denied'?'<span class="badge badge-danger">denied</span>':'<span class="badge badge-warning">'+esc(b.status)+'</span>';
-      const cost=b.actual_cost?'$'+fmt(b.actual_cost):b.reserved_cost?'$'+fmt(b.reserved_cost)+' (est.)':'—';
-      tbody.innerHTML+=`<tr>
-        <td style="white-space:nowrap;color:var(--muted);font-size:0.75rem">`+timeAgo(b.created_at)+`</td>
-        <td class="agent-id">`+esc(b.agent_id)+`</td>
-        <td>`+esc(b.resource_type)+`<br><span style="font-size:0.75rem;color:var(--muted)">`+esc(b.action)+`</span></td>
-        <td>`+cost+`</td>
-        <td>`+badge+`</td>
-      </tr>`;
-    }
-    document.getElementById('bookingsLoading').style.display='none';
-    document.getElementById('bookingsTable').style.display='table';
-  }catch(e){if(e.message!=='auth')console.error(e)}
-}
-
-async function refresh(){
-  Promise.all([loadStats(),loadAgents(),loadBookings()]);
-  document.getElementById('lastUpdate').textContent=new Date().toLocaleTimeString();
-}
-
-refresh();
-setInterval(refresh,5000);
+function ago(d){const s=Math.floor((Date.now()-new Date(d).getTime())/1000);if(s<60)return s+\x27s ago\x27;if(s<3600)return Math.floor(s/60)+\x27m ago\x27;if(s<86400)return Math.floor(s/3600)+\x27h ago\x27;return Math.floor(s/86400)+\x27d ago\x27}
+function esc(s){const d=document.createElement(\x27div\x27);d.textContent=s;return d.innerHTML}
+function bb(u,l){if(!l||l<=0)return\x27\x27;const p=Math.min(100,(u/l)*100);const c=p>80?\x27r\x27:p>50?\x27y\x27:\x27g\x27;return\x27<div class="bbar"><div class="bbf \x27+c+\x27" style="width:\x27+p+\x27%"></div></div>\x27}
+async function fj(u){const r=await fetch(u);if(r.status===401){document.body.innerHTML=\x27<div style="padding:2rem;text-align:center"><h2>Auth Required</h2></div>\x27;throw new Error(\x27auth\x27)}return r.json()}
+function toast(m,t=\x27success\x27){const d=document.createElement(\x27div\x27);d.className=\x27toast \x27+t;d.textContent=m;document.body.appendChild(d);setTimeout(()=>{d.style.opacity=\x270\x27;setTimeout(()=>d.remove(),300)},3000)}
+function renderAgent(a,tb){const du=(a.daily_limit-a.daily_remaining)||0;const mu=(a.monthly_limit-a.monthly_remaining)||0;const bg=a.status===\x27active\x27?\x27<span class="badge bs">active</span>\x27:\x27<span class="badge bn">\x27+esc(a.status)+\x27</span>\x27;tb.innerHTML+=\x27<tr><td><div class="an">\x27+esc(a.name)+\x27</div><div class="ai">\x27+esc(a.agent_id)+\x27</div></td><td>$\x27+fmt(du)+\x27 / $\x27+fmt(a.daily_limit)+\x27<br>\x27+bb(du,a.daily_limit)+\x27</td><td>$\x27+fmt(a.total_spent)+\x27</td><td>\x27+bg+\x27</td></tr>\x27}
+async function loadStats(){try{const d=await fj(API+\x27/dash/api/stats\x27);document.getElementById(\x27s1\x27).textContent=d.agents.total;document.getElementById(\x27s1a\x27).textContent=d.agents.active_24h+\x27 active (24h)\x27;document.getElementById(\x27s2\x27).textContent=d.bookings.total;document.getElementById(\x27s2a\x27).textContent=d.bookings.denied+\x27 denied\x27;document.getElementById(\x27s3\x27).textContent=\x27$\x27+fmt(d.costs.total_spent);document.getElementById(\x27s3a\x27).textContent=\x27$\x27+fmt(d.costs.total_refunded)+\x27 refunded\x27;document.getElementById(\x27s4\x27).textContent=d.bookings.denied_24h}catch(e){if(e.message!==\x27auth\x27)console.error(e)}}
+async function loadAgents(){try{const d=await fj(API+\x27/dash/api/agents\x27);const tb=document.getElementById(\x27ab\x27);tb.innerHTML=\x27\x27;if(!d.length){document.getElementById(\x27al\x27).style.display=\x27none\x27;document.getElementById(\x27ae\x27).style.display=\x27block\x27}else{d.forEach(a=>renderAgent(a,tb));document.getElementById(\x27al\x27).style.display=\x27none\x27;document.getElementById(\x27at\x27).style.display=\x27table\x27}}catch(e){if(e.message!==\x27auth\x27)console.error(e)}}
+async function loadBookings(){try{const d=await fj(API+\x27/dash/api/bookings?limit=50\x27);const tb=document.getElementById(\x27bb\x27);tb.innerHTML=\x27\x27;if(!d.length){document.getElementById(\x27bl\x27).style.display=\x27none\x27;document.getElementById(\x27be\x27).style.display=\x27block\x27}else{for(const b of d){const bg=b.status===\x27completed\x27?\x27<span class="badge bs">completed</span>\x27:b.status===\x27denied\x27?\x27<span class="badge bd">denied</span>\x27:\x27<span class="badge bw">\x27+esc(b.status)+\x27</span>\x27;const c=b.actual_cost?\x27$\x27+fmt(b.actual_cost):b.reserved_cost?\x27$\x27+fmt(b.reserved_cost)+\x27 (est.)\x27:\x27\u2014\x27;tb.innerHTML+=\x27<tr><td style="white-space:nowrap;color:var(--muted);font-size:.75rem">\x27+ago(b.created_at)+\x27</td><td class="ai">\x27+esc(b.agent_id)+\x27</td><td>\x27+esc(b.resource_type)+\x27<br><span style="font-size:.75rem;color:var(--muted)">\x27+esc(b.action)+\x27</span></td><td>\x27+c+\x27</td><td>\x27+bg+\x27</td></tr>\x27}document.getElementById(\x27bl\x27).style.display=\x27none\x27;document.getElementById(\x27bt\x27).style.display=\x27table\x27}}catch(e){if(e.message!==\x27auth\x27)console.error(e)}}
+async function loadLicStatus(){try{const d=await fj(API+\x27/api/v1/admin/license/status\x27);const lb=document.getElementById(\x27lb\x27);if(d.status===\x27active\x27){lb.className=\x27lbadge on\x27;lb.innerHTML=\x27<span class="dot"></span> \x27+d.product.charAt(0).toUpperCase()+d.product.slice(1)+\x27 License\x27;document.getElementById(\x27ls\x27).textContent=d.product.charAt(0).toUpperCase()+d.product.slice(1);document.getElementById(\x27lp\x27).textContent=\x27\x27}else{lb.className=\x27lbadge off\x27;lb.innerHTML=\x27<span class="dot"></span> No License\x27;document.getElementById(\x27ls\x27).textContent=\x27None\x27;document.getElementById(\x27lp\x27).textContent=\x27Dev mode\x27}document.getElementById(\x27la\x27).textContent=d.max_agents===-1?\x27Unlimited\x27:d.max_agents;document.getElementById(\x27lo\x27).textContent=(d.max_orgs===-1?\x27Unlimited\x27:d.max_orgs)+\x27 orgs\x27;document.getElementById(\x27lv\x27).textContent=d.valid_until?new Date(d.valid_until).toLocaleDateString():\x27Lifetime\x27;document.getElementById(\x27le\x27).textContent=d.owner_email||\x27\u2014\x27}catch(e){if(e.message!==\x27auth\x27)console.error(e)}}
+async function loadLic(){try{const d=await fj(API+\x27/api/v1/admin/licenses\x27);const tb=document.getElementById(\x27lb2\x27);tb.innerHTML=\x27\x27;if(!d.length){document.getElementById(\x27ll\x27).style.display=\x27none\x27;document.getElementById(\x27le2\x27).style.display=\x27block\x27}else{for(const l of d){const st=l.is_active?\x27<span class="badge bs">active</span>\x27:\x27<span class="badge bd">revoked</span>\x27;const vu=l.valid_until?new Date(l.valid_until).toLocaleDateString():\x27Lifetime\x27;tb.innerHTML+=\x27<tr><td>\x27+l.id+\x27</td><td><span class="badge bi">\x27+l.product+\x27</span></td><td>\x27+(l.max_agents===-1?\x27\u221e\x27:l.max_agents)+\x27</td><td>\x27+esc(l.owner_email||\x27\u2014\x27)+\x27</td><td>\x27+st+\x27</td><td>\x27+vu+\x27</td><td><button class="btn bd bxs" onclick="revLic(\x27+l.id+\x27)">Revoke</button></td></tr>\x27}document.getElementById(\x27ll\x27).style.display=\x27none\x27;document.getElementById(\x27lt\x27).style.display=\x27table\x27}}catch(e){if(e.message!==\x27auth\x27)console.error(e)}}
+async function genLic(){const p=document.getElementById(\x27gpt\x27).value;const e=document.getElementById(\x27ge\x27).value;try{const d=await fj(API+\x27/api/v1/admin/licenses\x27,{method:\x27POST\x27,headers:{\x27Content-Type\x27:\x27application/json\x27},body:JSON.stringify({product:p,owner_email:e})});document.getElementById(\x27kv\x27).textContent=d.license_key;document.getElementById(\x27kd\x27).style.display=\x27block\x27;toast(\x27License key generated\x27);loadLic()}catch(x){toast(\x27Failed: \x27+x.message,\x27error\x27)}}
+async function revLic(id){try{await fj(API+\x27/api/v1/admin/licenses/\x27+id,{method:\x27DELETE\x27});toast(\x27License \x27+id+\x27 revoked\x27);loadLic()}catch(x){toast(\x27Failed: \x27+x.message,\x27error\x27)}}
+function copyKey(){navigator.clipboard.writeText(document.getElementById(\x27kv\x27).textContent);toast(\x27Copied to clipboard\x27)}
+async function refresh(){await Promise.all([loadStats(),loadAgents(),loadBookings(),loadLicStatus()]);document.getElementById(\x27lu\x27).textContent=new Date().toLocaleTimeString()}
+refresh();setInterval(refresh,5000);
 </script>
 </body>
 </html>
