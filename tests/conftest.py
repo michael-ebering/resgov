@@ -46,12 +46,14 @@ def module_db():
 
     from src.models import init_db
     from src.auth import init_api_keys_table
+    from src.license import init_license_table
     from src.middleware import get_db, close_db
 
     close_db()
     db = get_db()
     init_db(db)
     init_api_keys_table()
+    init_license_table()
 
     yield
 

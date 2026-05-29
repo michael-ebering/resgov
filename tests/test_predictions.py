@@ -38,12 +38,14 @@ def fixture_test_client(db_connection):
     import src.engine
     import src.auth
     import src.middleware
+    import src.license
     mocks = [
         patch.object(src.models, "get_db", return_value=db_connection),
         patch.object(src.engine, "get_db", return_value=db_connection),
         patch.object(src.engine, "_get_db", return_value=db_connection),
         patch.object(src.auth, "_get_db", return_value=db_connection),
         patch.object(src.middleware, "get_db", return_value=db_connection),
+        patch.object(src.license, "_get_db", return_value=db_connection),
     ]
     for m in mocks:
         m.start()

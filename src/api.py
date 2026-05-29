@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 from .models import init_db, reset_daily_budgets, reset_monthly_budgets
 from .engine import BudgetEngine
 from .auth import verify_api_key, verify_admin_token, generate_api_key, ADMIN_TOKEN, init_api_keys_table, create_api_key, revoke_api_key, list_api_keys, _get_db, require_org
+from .license import init_license_table, create_license, validate_license, get_active_license, check_agent_limit, list_licenses, revoke_license, activate_license
 from .middleware import setup_cors, RateLimitMiddleware, RequestLoggingMiddleware, ConnectionPool, logger
 from .scheduler import start_scheduler, stop_scheduler
 
@@ -71,11 +72,13 @@ async def lifespan(app: FastAPI):
     # Init connection pool (sets DB path for thread-local connections)
     _pool = ConnectionPool(db_path)
 
-    # Init DB
-    from .middleware import get_db
+    # Ensure fresh DB connection (close any stale thread-local)
+    from .middleware import close_db, get_db
+    close_db()
     db = get_db()
     init_db(db)
     init_api_keys_table()
+    init_license_table()
 
     # Start scheduler
     start_scheduler()
@@ -128,7 +131,15 @@ async def require_admin(x_admin_token: Optional[str] = Header(None, alias="X-Adm
 async def register_agent(req: AgentRegister, owner_info=Depends(require_api_key)):
     """Register a new agent with budgets."""
     engine = BudgetEngine(rgf_config=RGF_CONFIG)
-    agent_org_id = owner_info["org_id"]  # Enforce org_id from API key
+    agent_org_id = owner_info["org_id"]
+    # Check license agent limit
+    if not check_agent_limit(agent_org_id):
+        license_info = get_active_license()
+        max_agents = license_info["max_agents"] if license_info else "unlimited"
+        raise HTTPException(
+            status_code=403,
+            detail=f"Agent limit reached. License allows {max_agents} agents per org."
+        )
     try:
         agent = engine.register_agent(
             agent_id=req.agent_id,
@@ -349,6 +360,37 @@ async def trigger_price_cache_refresh(_=Depends(require_admin)):
 
     result = refresh_price_cache()
     return result
+
+
+# --- License Management (Admin) ---
+
+@app.post("/api/v1/admin/licenses", status_code=201)
+async def admin_create_license(req: dict, _=Depends(require_admin)):
+    """Generate a new license key."""
+    product = req.get("product", "community")
+    owner_email = req.get("owner_email", "")
+    key = create_license(product=product, owner_email=owner_email)
+    return {"license_key": key, "product": product, "hint": "Store this key — it won't be shown again."}
+
+@app.get("/api/v1/admin/licenses")
+async def admin_list_licenses(_=Depends(require_admin)):
+    """List all license keys."""
+    return list_licenses()
+
+@app.delete("/api/v1/admin/licenses/{license_id}")
+async def admin_revoke_license(license_id: int, _=Depends(require_admin)):
+    """Revoke a license by ID."""
+    if revoke_license(license_id):
+        return {"status": "ok", "message": f"License {license_id} revoked."}
+    raise HTTPException(status_code=404, detail=f"License {license_id} not found.")
+
+@app.get("/api/v1/admin/license/status")
+async def admin_license_status(_=Depends(require_admin)):
+    """Get the current active license status."""
+    license_info = get_active_license()
+    if not license_info:
+        return {"status": "no_license", "message": "No active license. Running in dev mode."}
+    return {"status": "active", **license_info}
 
 
 # --- Health & Metrics ---
