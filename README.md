@@ -212,10 +212,6 @@ flowchart TD
 *   [ ] Open Policy Agent (OPA) declarative engine integration.
 *   [ ] Official Terraform Provider & Kubernetes Helm Charts.
 
-### v1.0
-*   [ ] Multi-tenant Managed Cloud SaaS (resgov.silentops.cloud).
-*   [ ] Enterprise SSO / SAML & Granular Role-Based Access Control (RBAC).
-
 ## 📄 License
 This project is licensed under the Business Source License 1.1 (BSL-1.1).
 *   Free forever for personal use, testing, and internal non-commercial setups.
