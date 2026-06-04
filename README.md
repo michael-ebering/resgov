@@ -13,7 +13,7 @@
 **The missing circuit breaker between your autonomous agents and your credit card.**
 _STOP letting runaway agent loops burn through your API budgets overnight._
 
-> **Note:** This is an independent private open-source project by Michael Ebering. Not affiliated with or endorsed by any employer.
+> **Note:** This is an independent private source-available project by Michael Ebering (BSL 1.1). Not affiliated with or endorsed by any employer.
 
 ResGov is a lightweight, ultra-low-latency proxy and governance engine. It complements MCP and A2A by adding a strict economic layer: preventing cost explosions through real-time quota enforcement, per-agent budget tracking, and stream-safe cost governance.
 
