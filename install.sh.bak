@@ -104,8 +104,8 @@ done
 # --- Verify ---
 
 HEALTH="$(curl -sf http://localhost:8080/health 2>/dev/null || echo '{"status":"error}")"
-STATUS="$(echo "$HEALTH" | python3 -c \"import sys,json; print(json.load(sys.stdin).get(\"status\",\"?\"))\" 2>/dev/null || echo \"?\")"
-VERSION="$(echo "$HEALTH" | python3 -c \"import sys,json; print(json.load(sys.stdin).get(\"version\",\"?\"))\" 2>/dev/null || echo \"?\")"
+STATUS="$(echo "$HEALTH" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("status","?"))' 2>/dev/null || echo "?")"
+VERSION="$(echo "$HEALTH" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("version","?"))' 2>/dev/null || echo "?")"
 
 if [ "$STATUS" = "ok" ]; then
   log "ResGov v${VERSION} is running and healthy!"
