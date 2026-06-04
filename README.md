@@ -60,14 +60,25 @@ currency = "EUR"
 fail_safe_action = "deny" # Hard block if proxy connectivity drops
 
 [agents.hermes]
-daily_budget = 3.00
+daily_budget = 10.00
 max_tokens_per_request = 4096
 allowed_models = ["anthropic/claude-sonnet-4-6", "openrouter/deepseek/deepseek-v4-flash"]
 
 [agents.research-bot]
-daily_budget = 1.00
+daily_budget = 4.00
 allowed_models = ["gpt-4o-mini"]
 allowed_tools = ["web-scraper", "pexels_search"]
+
+[agents.code-agent]
+daily_budget = 6.00
+max_tokens_per_request = 8192
+allowed_models = ["anthropic/claude-sonnet-4-6"]
+allowed_tools = ["github", "shell-exec", "file-reader"]
+
+[agents.monitor]
+daily_budget = 1.50
+allowed_models = ["openrouter/deepseek/deepseek-v4-flash"]
+allowed_tools = ["webhook", "prometheus-query"]
 ```
 
 
@@ -142,7 +153,7 @@ When an agent attempts to breach its allocated .rgf budget, ResGov aborts the ca
 {
   "error": {
     "type": "budget_exceeded",
-    "message": "Daily budget exceeded. Limit: €3.00, Spent: €2.98, Required: €0.15",
+    "message": "Daily budget exceeded. Limit: €10.00, Spent: €9.85, Required: €0.20",
     "agent_id": "hermes",
     "reason": "daily_budget_exceeded"
   }
