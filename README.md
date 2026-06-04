@@ -56,7 +56,7 @@ Skip complex dashboard configurations for local or single-instance setups. ResGo
 # .rgf - Resource Governance Rules
 
 [global]
-currency = "USD"
+currency = "EUR"
 fail_safe_action = "deny" # Hard block if proxy connectivity drops
 
 [agents.hermes]
@@ -86,7 +86,7 @@ Example Response:
   "status": "ok",
   "message": "Prediction successful.",
   "remaining_budget": 42.15,
-  "rate_usd_per_hour": 1.75,
+  "rate_eur_per_hour": 1.75,
   "prediction_timestamp": "2026-05-29T14:30:00Z",
   "remaining_time_seconds": 86400.0
 }
@@ -142,7 +142,7 @@ When an agent attempts to breach its allocated .rgf budget, ResGov aborts the ca
 {
   "error": {
     "type": "budget_exceeded",
-    "message": "Daily budget exceeded. Limit: $3.00, Spent: $2.98, Required: $0.15",
+    "message": "Daily budget exceeded. Limit: €3.00, Spent: €2.98, Required: €0.15",
     "agent_id": "hermes",
     "reason": "daily_budget_exceeded"
   }
