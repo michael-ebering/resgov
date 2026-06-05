@@ -47,16 +47,16 @@ jobs:
         run: |
           docker run -d --name resgov-test \
             -p 8080:8080 \
-            -e RESGOV_ADMIN_TOKEN=test-ci-token \
-            -e RESGOV_UPSTREAM_API_KEY=test \
+            -e RESGOV_DB_PATH=/tmp/resgov.db \
+            -e RESGOV_ADMIN_TOKEN=ci-test-token \
             resgov:${{ github.sha }}
-          for i in $(seq 1 60); do
+          for i in $(seq 1 30); do
             if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
               echo "Container ready after ${i}s"
               break
             fi
-            echo "Waiting for container... (${i}/60)"
             sleep 1
           done
-          curl -sf http://localhost:8080/health || (docker logs resgov-test && exit 1)
+          curl -sf http://localhost:8080/health || (docker logs resgov-test; exit 1)
+          echo "Docker test: PASSED"
           docker stop resgov-test

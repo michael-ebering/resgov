@@ -83,7 +83,19 @@ async def lifespan(app: FastAPI):
     """Initialize and cleanup."""
     global _httpx_client
     db_path = os.environ.get("RESGOV_DB_PATH", "/data/resgov.db")
-    os.makedirs(os.path.dirname(db_path) if os.path.dirname(db_path) else ".", exist_ok=True)
+    # Graceful fallback if default path is not writable (CI, read-only volumes)
+    try:
+        db_dir = os.path.dirname(db_path) if os.path.dirname(db_path) else "."
+        os.makedirs(db_dir, exist_ok=True)
+        test_db = os.path.join(db_dir, ".resgov_writable_test")
+        open(test_db, "w").close()
+        os.unlink(test_db)
+    except (OSError, PermissionError):
+        fallback = "/tmp/resgov.db"
+        logger.warning(f"Default DB path not writable ({db_path}), falling back to {fallback}")
+        db_path = fallback
+        os.environ["RESGOV_DB_PATH"] = db_path
+        os.makedirs("/tmp", exist_ok=True)
 
     # Init connection pool (sets DB path for thread-local connections)
     _pool = ConnectionPool(db_path)
