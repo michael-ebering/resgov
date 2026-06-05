@@ -43,6 +43,13 @@ jobs:
       - name: Test Docker image
         run: |
           docker run -d --name resgov-test -p 8080:8080 resgov:${{ github.sha }}
-          sleep 5
+          for i in $(seq 1 30); do
+            if curl -f http://localhost:8080/health > /dev/null 2>&1; then
+              echo "Container ready after ${i}s"
+              break
+            fi
+            echo "Waiting for container... (${i}/30)"
+            sleep 1
+          done
           curl -f http://localhost:8080/health || exit 1
           docker stop resgov-test
