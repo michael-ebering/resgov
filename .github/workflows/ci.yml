@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -42,14 +45,18 @@ jobs:
 
       - name: Test Docker image
         run: |
-          docker run -d --name resgov-test -p 8080:8080 resgov:${{ github.sha }}
-          for i in $(seq 1 30); do
-            if curl -f http://localhost:8080/health > /dev/null 2>&1; then
+          docker run -d --name resgov-test \
+            -p 8080:8080 \
+            -e RESGOV_ADMIN_TOKEN=test-ci-token \
+            -e RESGOV_UPSTREAM_API_KEY=test \
+            resgov:${{ github.sha }}
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
               echo "Container ready after ${i}s"
               break
             fi
-            echo "Waiting for container... (${i}/30)"
+            echo "Waiting for container... (${i}/60)"
             sleep 1
           done
-          curl -f http://localhost:8080/health || exit 1
+          curl -sf http://localhost:8080/health || (docker logs resgov-test && exit 1)
           docker stop resgov-test
