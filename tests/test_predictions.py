@@ -113,7 +113,7 @@ class TestBudgetPrediction:
         
         assert prediction["status"] == "ok"
         assert prediction["rate_usd_per_hour"] == 0.0
-        assert prediction["remaining_time_seconds"] == float('inf')
+        assert prediction["remaining_time_seconds"] is None
         assert "until reset" in prediction["message"]
 
     def test_prediction_already_exhausted(self, budget_engine, db_connection):

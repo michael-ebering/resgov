@@ -176,8 +176,10 @@ function renderAgent(a,tb){
     if(pred.status === 'ok'){
       const rate = fmtRate(pred.rate_usd_per_hour);
       const dur = fmtDuration(pred.remaining_time_seconds);
-      const cls = pred.remaining_time_seconds < 3600 ? 'danger' : pred.remaining_time_seconds < 86400 ? 'warn' : 'ok';
-      predHtml = '<div class="pred '+cls+'">'+rate+' &middot; '+dur+' left</div>';
+      const cls = !pred.remaining_time_seconds ? 'ok' : pred.remaining_time_seconds < 3600 ? 'danger' : pred.remaining_time_seconds < 86400 ? 'warn' : 'ok';
+      const trendIcon = pred.trend === 'accelerating' ? '&#8593;' : pred.trend === 'decelerating' ? '&#8595;' : '&#8594;';
+      const confBadge = pred.confidence === 'high' ? '<span style="color:var(--green)">&#9679;</span>' : pred.confidence === 'medium' ? '<span style="color:var(--yellow)">&#9679;</span>' : '<span style="color:var(--muted)">&#9679;</span>';
+      predHtml = '<div class="pred '+cls+'">'+rate+' &middot; '+dur+' left '+trendIcon+' '+confBadge+'</div>';
     } else if(pred.status === 'exhausted'){
       predHtml = '<div class="pred danger">Budget exhausted</div>';
     } else if(pred.status === 'no_data'){

@@ -469,8 +469,18 @@ class BudgetEngine:
     def get_budget_prediction(self, agent_id: str, period: str = "daily",
                             lookback_hours: int = 6, db=None, org_id: Optional[str] = None) -> Dict:
         """
-        Predicts when an agent's budget will be exhausted based on recent spend rate.
+        Predicts when an agent's budget will be exhausted using EWMA trend analysis.
+        
+        Uses Exponentially Weighted Moving Average (EWMA) with two windows:
+        - Short EWMA (1h half-life): captures recent spend velocity
+        - Long EWMA (lookback/2 half-life): captures baseline trend
+        
+        If short EWMA > long EWMA, spend is accelerating (worse prediction).
+        If short EWMA < long EWMA, spend is decelerating (better prediction).
+        
+        Also computes a confidence score based on booking count and variance.
         """
+        import math
         _db = db if db else get_db()
 
         agent = self._fetch_agent(_db, agent_id, org_id)
@@ -493,37 +503,141 @@ class BudgetEngine:
         recent_bookings = _db.execute(
             """SELECT created_at, cost FROM bookings
                WHERE agent_id = ? AND status = 'success' AND created_at >= ?
-               ORDER BY created_at DESC""",
+               ORDER BY created_at ASC""",
             (agent_id, lookback_timestamp)
         ).fetchall()
 
         if not recent_bookings:
             return {"status": "no_data", "message": "Not enough recent spend data for prediction.", "remaining_budget": remaining_budget}
+
+        now = datetime.now(timezone.utc)
+        total_cost = sum(b["cost"] for b in recent_bookings)
         
-        # Calculate spend rate per hour
-        first_booking_time = datetime.fromisoformat(recent_bookings[-1]["created_at"])
-        last_booking_time = datetime.fromisoformat(recent_bookings[0]["created_at"])
-        total_cost_in_window = sum(b["cost"] for b in recent_bookings)
-        time_delta_seconds = (last_booking_time - first_booking_time).total_seconds()
+        if total_cost <= 0:
+            return {"status": "ok", "message": f"Current {period} budget will last until reset (no significant recent spend).",
+                    "remaining_budget": remaining_budget, "rate_usd_per_hour": 0.0,
+                    "prediction_timestamp": None, "remaining_time_seconds": None,
+                    "trend": "stable", "confidence": "low"}
 
-        if time_delta_seconds <= 0 or total_cost_in_window <= 0:
-            rate_usd_per_hour = 0.0 # No meaningful rate can be calculated
+        # --- EWMA Rate Calculation ---
+        # Convert half-life (in hours) to smoothing factor alpha
+        # alpha = 1 - exp(-ln(2) / half_life_hours)
+        def _ewma_rate(bookings, half_life_hours):
+            """Compute EWMA spend rate in USD/hour."""
+            if not bookings or half_life_hours <= 0:
+                return 0.0
+            alpha = 1.0 - math.exp(-0.69314718 / half_life_hours)
+            if len(bookings) == 1:
+                # Single booking: no meaningful rate can be extrapolated from one data point
+                # Return 0 to indicate insufficient data for rate calculation
+                return 0.0
+            
+            # Compute per-interval rates, then EWMA-weighted average
+            ewma = None
+            for i in range(1, len(bookings)):
+                t_prev = datetime.fromisoformat(bookings[i-1]["created_at"])
+                t_curr = datetime.fromisoformat(bookings[i]["created_at"])
+                dt_hours = max((t_curr - t_prev).total_seconds() / 3600, 0.0001)
+                interval_rate = bookings[i]["cost"] / dt_hours
+                if ewma is None:
+                    ewma = interval_rate
+                else:
+                    ewma = alpha * interval_rate + (1 - alpha) * ewma
+            
+            # Also factor in the cost of the first booking relative to time before it
+            if ewma is not None:
+                first_elapsed_h = max((datetime.fromisoformat(bookings[0]["created_at"]) - 
+                                       datetime.fromisoformat(bookings[0]["created_at"])).total_seconds() / 3600, 0.001)
+                # Already covered by the loop starting at index 1
+                pass
+            return ewma or 0.0
+
+        # Short-term rate (1h half-life, reacts fast to changes)
+        short_half_life = min(1.0, lookback_hours / 6)
+        # Long-term rate (half the lookback, more stable)
+        long_half_life = max(short_half_life * 2, lookback_hours / 2)
+
+        rate_short = _ewma_rate(recent_bookings, short_half_life)
+        rate_long = _ewma_rate(recent_bookings, long_half_life)
+
+        if rate_short <= 0 and rate_long <= 0:
+            return {"status": "ok", "message": f"Current {period} budget will last until reset (no significant recent spend).",
+                    "remaining_budget": remaining_budget, "rate_usd_per_hour": 0.0,
+                    "prediction_timestamp": None, "remaining_time_seconds": None,
+                    "trend": "stable", "confidence": "low"}
+
+        # Use weighted combination: favor short-term if accelerating, long-term if not
+        if rate_long > 0 and rate_short > rate_long:
+            # Accelerating spend: bias toward short-term (pessimistic)
+            rate_usd_per_hour = 0.6 * rate_short + 0.4 * rate_long
+            trend = "accelerating"
+        elif rate_short > 0 and rate_short < rate_long * 0.8:
+            # Decelerating spend: bias toward long-term (optimistic)
+            rate_usd_per_hour = 0.3 * rate_short + 0.7 * rate_long
+            trend = "decelerating"
         else:
-            rate_usd_per_hour = total_cost_in_window / (time_delta_seconds / 3600)  # USD per hour
+            # Stable: use long-term rate
+            rate_usd_per_hour = rate_long
+            trend = "stable"
 
-        if rate_usd_per_hour <= 0: # If rate is zero or near-zero, budget will likely last until reset
-            return {"status": "ok", "message": f"Current {period} budget will last until reset (no significant recent spend).", 
-                    "remaining_budget": remaining_budget, "rate_usd_per_hour": 0.0, "prediction_timestamp": None, "remaining_time_seconds": float('inf')}
+        if rate_usd_per_hour <= 0:
+            return {"status": "ok", "message": f"Current {period} budget will last until reset (no significant recent spend).",
+                    "remaining_budget": remaining_budget, "rate_usd_per_hour": 0.0,
+                    "prediction_timestamp": None, "remaining_time_seconds": None,
+                    "trend": trend, "confidence": "low"}
 
+        # --- Confidence Calculation ---
+        # Based on: number of bookings, variance of interval rates, data span
+        n = len(recent_bookings)
+        data_span_hours = max((datetime.fromisoformat(recent_bookings[-1]["created_at"]) - 
+                               datetime.fromisoformat(recent_bookings[0]["created_at"])).total_seconds() / 3600, 0.001)
+        
+        if n >= 2:
+            # Coefficient of variation of interval rates
+            interval_rates = []
+            for i in range(1, n):
+                dt = max((datetime.fromisoformat(recent_bookings[i]["created_at"]) - 
+                          datetime.fromisoformat(recent_bookings[i-1]["created_at"])).total_seconds() / 3600, 0.0001)
+                interval_rates.append(recent_bookings[i]["cost"] / dt)
+            if interval_rates:
+                mean_rate = sum(interval_rates) / len(interval_rates)
+                if mean_rate > 0:
+                    variance = sum((r - mean_rate) ** 2 for r in interval_rates) / len(interval_rates)
+                    cv = math.sqrt(variance) / mean_rate  # coefficient of variation
+                else:
+                    cv = 1.0
+            else:
+                cv = 1.0
+        else:
+            cv = 1.0  # single booking = high uncertainty
+
+        # Scale: more bookings + lower CV + wider span = higher confidence
+        booking_score = min(n / 10, 1.0)  # max 1.0 at 10+ bookings
+        span_score = min(data_span_hours / lookback_hours, 1.0)  # how much of lookback is covered
+        variance_score = max(0, 1.0 - cv)  # lower CV = higher confidence
+        confidence_val = (booking_score * 0.4 + span_score * 0.3 + variance_score * 0.3)
+
+        if confidence_val >= 0.7:
+            confidence = "high"
+        elif confidence_val >= 0.4:
+            confidence = "medium"
+        else:
+            confidence = "low"
 
         remaining_time_hours = remaining_budget / rate_usd_per_hour
-        prediction_timestamp = (datetime.now(timezone.utc) + timedelta(hours=remaining_time_hours)).isoformat()
+        prediction_timestamp = (now + timedelta(hours=remaining_time_hours)).isoformat()
 
-        return {"status": "ok", "message": "Prediction successful.",
-                "remaining_budget": remaining_budget,
-                "rate_usd_per_hour": round(rate_usd_per_hour, 4),
-                "prediction_timestamp": prediction_timestamp,
-                "remaining_time_seconds": remaining_time_hours * 3600}
+        return {
+            "status": "ok",
+            "message": "Prediction successful.",
+            "remaining_budget": remaining_budget,
+            "rate_usd_per_hour": round(rate_usd_per_hour, 4),
+            "prediction_timestamp": prediction_timestamp,
+            "remaining_time_seconds": remaining_time_hours * 3600,
+            "trend": trend,
+            "confidence": confidence,
+            "rate_method": "ewma",
+        }
 
 
     def reserve_budget(self, agent_id: str, max_cost: float, 
