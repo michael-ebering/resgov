@@ -26,8 +26,10 @@ services:
     restart: unless-stopped
     networks:
       - resgov_default
-    expose:
-      - "8090"
+    environment:
+      - RESGOV_ADMIN_TOKEN=admin
+    ports:
+      - "127.0.0.1:8090:8090"
     volumes:
       - resgov-data:/data
     labels:

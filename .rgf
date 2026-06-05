@@ -1,0 +1,16 @@
+# .rgf — Resource Governance Rules
+# Default configuration for ResGov production deployment
+
+[global]
+currency = "USD"
+fail_safe_action = "deny"
+
+[agents.landing-page]
+daily_budget = 5.00
+monthly_budget = 100.00
+allowed_models = ["*"]
+
+[agents.default]
+daily_budget = 1.00
+monthly_budget = 20.00
+allowed_models = ["*"]

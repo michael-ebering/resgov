@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends sqlite3 cron &&
 COPY src/ ./src/
 COPY dash/ ./dash/
 COPY scripts/backup.sh /app/scripts/backup.sh
+COPY .rgf /app/.rgf
 
 RUN mkdir -p /data /data/backups
 RUN chmod +x /app/scripts/backup.sh
