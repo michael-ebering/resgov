@@ -15,14 +15,24 @@ from .middleware import get_db as _get_db, get_transaction, close_db
 
 logger = logging.getLogger("resgov.engine")
 
-# --- Webhook Configuration ---
+# --- Webhook Configuration (legacy single-webhook via env) ---
 
 WEBHOOK_URL = os.environ.get("RESGOV_WEBHOOK_URL", "")
 WEBHOOK_SECRET = os.environ.get("RESGOV_WEBHOOK_SECRET", "")
 
 
 def _send_webhook(event: str, data: dict):
-    """Send webhook notification (async fire-and-forget) with HMAC-SHA256 signature."""
+    """Send webhook notification — DB-managed webhooks first, then legacy env-based."""
+    # DB-managed webhooks (new)
+    try:
+        from .middleware import get_db
+        from .webhooks import send_webhook as _send_db_webhook
+        db = get_db()
+        _send_db_webhook(db, event, data)
+    except Exception as e:
+        logger.debug(f"DB webhook send failed: {e}")
+
+    # Legacy single webhook via env (backward compat)
     if not WEBHOOK_URL:
         return
 
@@ -36,7 +46,6 @@ def _send_webhook(event: str, data: dict):
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }).encode()
 
-    # HMAC-SHA256 signature
     signature = hmac.new(
         WEBHOOK_SECRET.encode(),
         payload,
@@ -55,9 +64,9 @@ def _send_webhook(event: str, data: dict):
             method="POST",
         )
         urllib.request.urlopen(req, timeout=5)
-        logger.info(f"Webhook sent: {event}")
+        logger.info(f"Legacy webhook sent: {event}")
     except Exception as e:
-        logger.warning(f"Webhook failed: {event} → {e}")
+        logger.warning(f"Legacy webhook failed: {event} → {e}")
 
 
 class BudgetEngine:

@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 from .models import init_db, reset_daily_budgets, reset_monthly_budgets
 from .engine import BudgetEngine
 from .auth import verify_api_key, verify_admin_token, generate_api_key, ADMIN_TOKEN, init_api_keys_table, create_api_key, revoke_api_key, list_api_keys, _get_db, require_org
+from .webhooks import init_webhooks_table, create_webhook, list_webhooks, get_webhook, delete_webhook, update_webhook, send_webhook  # type: ignore[import]
 from .license import init_license_table, create_license, validate_license, get_active_license, check_agent_limit, list_licenses, revoke_license, activate_license
 from .middleware import setup_cors, RateLimitMiddleware, RequestLoggingMiddleware, ConnectionPool, logger
 from .scheduler import start_scheduler, stop_scheduler
@@ -46,6 +47,21 @@ class BookingRequest(BaseModel):
 class BudgetUpdate(BaseModel):
     period: str = Field(..., pattern="^(daily|monthly|total)$")
     limit_amount: float = Field(..., gt=0)
+
+
+class WebhookCreate(BaseModel):
+    url: str = Field(..., max_length=2048)
+    name: str = Field(default="", max_length=256)
+    type: str = Field(default="discord", pattern="^(discord|slack|generic)$")
+    events: list[str] = Field(default=["*"])
+
+
+class WebhookUpdate(BaseModel):
+    name: str = Field(default="", max_length=256)
+    url: str = Field(default="", max_length=2048)
+    type: str = Field(default="", pattern="^(discord|slack|generic)$")
+    events: list[str] = Field(default=[])
+    is_active: bool = True
 
 # --- Metrics (simple in-memory, Prometheus-compatible) ---
 
@@ -79,6 +95,7 @@ async def lifespan(app: FastAPI):
     init_db(db)
     init_api_keys_table()
     init_license_table()
+    init_webhooks_table(db)
 
     # Start scheduler
     start_scheduler()
@@ -391,6 +408,73 @@ async def admin_license_status(_=Depends(require_admin)):
     if not license_info:
         return {"status": "no_license", "message": "No active license. Running in dev mode."}
     return {"status": "active", **license_info}
+
+
+# --- Webhook Management ---
+
+@app.post("/api/v1/admin/webhooks", status_code=201)
+async def admin_create_webhook(req: WebhookCreate, _=Depends(require_admin)):
+    """Register a new webhook (Discord, Slack, or generic)."""
+    from .middleware import get_db
+    db = get_db()
+    try:
+        hook = create_webhook(db, url=req.url, name=req.name, hook_type=req.type, events=req.events)
+        return {"status": "ok", "webhook": hook}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/api/v1/admin/webhooks")
+async def admin_list_webhooks(active_only: bool = False, _=Depends(require_admin)):
+    """List all webhooks."""
+    from .middleware import get_db
+    db = get_db()
+    return list_webhooks(db, active_only=active_only)
+
+
+@app.get("/api/v1/admin/webhooks/{webhook_id}")
+async def admin_get_webhook(webhook_id: int, _=Depends(require_admin)):
+    """Get a single webhook by ID."""
+    from .middleware import get_db
+    db = get_db()
+    hook = get_webhook(db, webhook_id)
+    if not hook:
+        raise HTTPException(status_code=404, detail=f"Webhook {webhook_id} not found.")
+    return hook
+
+
+@app.patch("/api/v1/admin/webhooks/{webhook_id}")
+async def admin_update_webhook(webhook_id: int, req: WebhookUpdate, _=Depends(require_admin)):
+    """Update a webhook."""
+    from .middleware import get_db
+    db = get_db()
+    updates = req.model_dump(exclude_unset=True)
+    hook = update_webhook(db, webhook_id, **updates)
+    if not hook:
+        raise HTTPException(status_code=404, detail=f"Webhook {webhook_id} not found.")
+    return {"status": "ok", "webhook": hook}
+
+
+@app.delete("/api/v1/admin/webhooks/{webhook_id}")
+async def admin_delete_webhook(webhook_id: int, _=Depends(require_admin)):
+    """Delete a webhook."""
+    from .middleware import get_db
+    db = get_db()
+    if delete_webhook(db, webhook_id):
+        return {"status": "ok", "message": f"Webhook {webhook_id} deleted."}
+    raise HTTPException(status_code=404, detail=f"Webhook {webhook_id} not found.")
+
+
+@app.post("/api/v1/admin/webhooks/{webhook_id}/test")
+async def admin_test_webhook(webhook_id: int, _=Depends(require_admin)):
+    """Send a test event to a webhook."""
+    from .middleware import get_db
+    db = get_db()
+    hook = get_webhook(db, webhook_id)
+    if not hook:
+        raise HTTPException(status_code=404, detail=f"Webhook {webhook_id} not found.")
+    send_webhook(db, "test", {"message": "This is a test event from ResGov.", "agent_id": "test"})
+    return {"status": "ok", "message": f"Test event sent to webhook {webhook_id}."}
 
 
 # --- Health & Metrics ---
