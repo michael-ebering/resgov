@@ -27,11 +27,11 @@ services:
     networks:
       - resgov_default
     environment:
-      - RESGOV_ADMIN_TOKEN=admin
+      - RESGOV_ADMIN_TOKEN=${RESGOV_ADMIN_TOKEN}
     ports:
       - "127.0.0.1:8090:8090"
     volumes:
-      - resgov-data:/data
+      - leadcol-data:/data
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.leads.rule=Host(`api.resgov.silentops.cloud`) && PathPrefix(`/leads`)"
@@ -41,6 +41,7 @@ services:
 
 volumes:
   resgov-data:
+  leadcol-data:
 
 networks:
   resgov_default:

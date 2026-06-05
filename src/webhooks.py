@@ -126,14 +126,65 @@ def _row_to_dict(row, include_secret=False) -> dict:
     return d
 
 
+def _is_safe_url(url: str) -> bool:
+    """Validate webhook URL against SSRF. Block internal IPs and metadata endpoints."""
+    from urllib.parse import urlparse
+    import ipaddress
+    import socket
+
+    try:
+        parsed = urlparse(url)
+
+        # Only allow http/https schemes
+        if parsed.scheme not in ("http", "https"):
+            return False
+
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+
+        # Block localhost by name
+        if hostname.lower() in ("localhost", "127.0.0.1", "::1", "0.0.0.0", "[::1]"):
+            return False
+
+        # Block AWS/GCP/Azure metadata endpoints
+        if hostname in ("169.254.169.249", "169.254.169.254", "metadata.google.internal", "metadata.internal"):
+            return False
+
+        # Resolve hostname and check if it's a private IP
+        try:
+            addr = socket.getaddrinfo(hostname, None)
+            for family, socktype, proto, canonname, sockaddr in addr:
+                ip = ipaddress.ip_address(sockaddr[0])
+                if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                    return False
+        except (socket.gaierror, ValueError):
+            # If we can't resolve, block by default
+            return False
+
+        return True
+    except Exception:
+        return False
+
+
 def send_webhook(db: sqlite3.Connection, event: str, data: dict):
-    """Send event to all matching active webhooks."""
+    """Send event to all matching active webhooks with SSRF protection."""
     rows = db.execute(
         "SELECT id, url, secret, type, events FROM webhooks WHERE is_active = 1"
     ).fetchall()
 
     for row in rows:
         webhook_id, url, secret, hook_type, events_json = row
+
+        # SSRF protection: validate URL before sending
+        if not _is_safe_url(url):
+            logger.warning(f"Webhook {webhook_id} blocked: URL failed SSRF check: {url}")
+            db.execute(
+                "UPDATE webhooks SET last_status = 'blocked_ssrf', failure_count = failure_count + 1 WHERE id = ?",
+                (webhook_id,),
+            )
+            continue
+
         events = json.loads(events_json) if events_json else ["*"]
         if "*" not in events and event not in events:
             continue

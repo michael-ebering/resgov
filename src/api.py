@@ -416,7 +416,11 @@ async def admin_license_status(_=Depends(require_admin)):
 async def admin_create_webhook(req: WebhookCreate, _=Depends(require_admin)):
     """Register a new webhook (Discord, Slack, or generic)."""
     from .middleware import get_db
+    from .webhooks import _is_safe_url
     db = get_db()
+    # SSRF protection
+    if not _is_safe_url(req.url):
+        raise HTTPException(status_code=400, detail="URL blocked: internal/private IPs and metadata endpoints are not allowed.")
     try:
         hook = create_webhook(db, url=req.url, name=req.name, hook_type=req.type, events=req.events)
         return {"status": "ok", "webhook": hook}
