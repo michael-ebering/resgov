@@ -973,6 +973,67 @@ async def dash_bookings(
     rows = db.execute(query, params).fetchall()
     return [dict(r) for r in rows]
 
+
+@app.get("/dash/api/predictions")
+async def dash_predictions(
+    request: Request,
+    period: str = Query(default="daily", pattern="^(daily|monthly)$"),
+    lookback_hours: int = Query(default=6, ge=1, le=24 * 7),
+):
+    """Get budget exhaustion predictions for all agents."""
+    await require_dashboard_auth(request)
+    engine = BudgetEngine(rgf_config=RGF_CONFIG)
+    agents = engine.list_agents()
+    results = []
+    for agent in agents:
+        prediction = engine.get_budget_prediction(
+            agent["id"], period=period, lookback_hours=lookback_hours
+        )
+        # Sanitize: float('inf') is not JSON-serializable
+        rts = prediction.get("remaining_time_seconds")
+        if rts is not None and rts != rts:  # NaN check
+            rts = None
+        try:
+            if rts is not None and rts == float('inf'):
+                rts = None
+        except (TypeError, ValueError):
+            rts = None
+        results.append({
+            "agent_id": agent["id"],
+            "name": agent["name"],
+            "status": prediction.get("status"),
+            "remaining_budget": prediction.get("remaining_budget"),
+            "rate_usd_per_hour": prediction.get("rate_usd_per_hour"),
+            "prediction_timestamp": prediction.get("prediction_timestamp"),
+            "remaining_time_seconds": rts,
+            "message": prediction.get("message"),
+        })
+    return results
+
+
+@app.get("/dash/api/agent/{agent_id}/prediction")
+async def dash_agent_prediction(
+    request: Request,
+    agent_id: str,
+    period: str = Query(default="daily", pattern="^(daily|monthly)$"),
+    lookback_hours: int = Query(default=6, ge=1, le=24 * 7),
+):
+    """Get budget exhaustion prediction for a single agent."""
+    await require_dashboard_auth(request)
+    engine = BudgetEngine(rgf_config=RGF_CONFIG)
+    prediction = engine.get_budget_prediction(agent_id, period=period, lookback_hours=lookback_hours)
+    if prediction["status"] == "error":
+        raise HTTPException(status_code=404, detail=prediction["message"])
+    # Sanitize: float('inf') is not JSON-serializable
+    rts = prediction.get("remaining_time_seconds")
+    try:
+        if rts is not None and rts == float('inf'):
+            prediction["remaining_time_seconds"] = None
+    except (TypeError, ValueError):
+        pass
+    return prediction
+
+
 @app.get("/dash", response_class=HTMLResponse)
 async def dashboard(request: Request):
     """Serve the monitoring dashboard."""
