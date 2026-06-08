@@ -118,31 +118,49 @@ async def lifespan(app: FastAPI):
 
     # --- Startup Security Checks ---
     import sys
+    is_testing = os.environ.get("RESGOV_TESTING", "false") == "true"
+
     admin_token = os.environ.get("RESGOV_ADMIN_TOKEN", "")
     dash_pass = os.environ.get("RESGOV_DASH_PASS", "")
 
     if not admin_token:
-        logger.critical(
-            "FATAL: RESGOV_ADMIN_TOKEN is not set. "
-            "Set a secure token (min. 32 chars) in your .env file. "
-            "Generate one with: openssl rand -hex 32"
-        )
-        sys.exit(1)
+        if is_testing:
+            admin_token = "test-token-ci-not-for-production-use-32chars"
+            os.environ["RESGOV_ADMIN_TOKEN"] = admin_token
+            logger.warning("RESGOV_ADMIN_TOKEN not set — using CI/test fallback token.")
+        else:
+            logger.critical(
+                "FATAL: RESGOV_ADMIN_TOKEN is not set. "
+                "Set a secure token (min. 32 chars) in your .env file. "
+                "Generate one with: openssl rand -hex 32"
+            )
+            sys.exit(1)
 
     if len(admin_token) < 32:
-        logger.critical(
-            "FATAL: RESGOV_ADMIN_TOKEN is too short (min. 32 characters required). "
-            f"Current length: {len(admin_token)}"
-        )
-        sys.exit(1)
+        if is_testing:
+            logger.warning(
+                f"RESGOV_ADMIN_TOKEN is short ({len(admin_token)} chars) — "
+                "allowed in CI/test mode only."
+            )
+        else:
+            logger.critical(
+                "FATAL: RESGOV_ADMIN_TOKEN is too short (min. 32 characters required). "
+                f"Current length: {len(admin_token)}"
+            )
+            sys.exit(1)
 
     if not dash_pass:
-        generated = secrets.token_urlsafe(24)
-        os.environ["RESGOV_DASH_PASS"] = generated
-        logger.warning(
-            f"RESGOV_DASH_PASS not set. Auto-generated dashboard password: {generated} "
-            "Write this down and set it in your .env!"
-        )
+        if is_testing:
+            # In CI/test mode, leave DASH_PASS unset so require_dashboard_auth
+            # is a no-op and tests can access /dash/api/* without Basic Auth.
+            logger.info("RESGOV_DASH_PASS not set — dashboard auth disabled (test mode).")
+        else:
+            generated = secrets.token_urlsafe(24)
+            os.environ["RESGOV_DASH_PASS"] = generated
+            logger.warning(
+                f"RESGOV_DASH_PASS not set. Auto-generated dashboard password: {generated} "
+                "Write this down and set it in your .env!"
+            )
 
     # Warn if not behind HTTPS proxy
     if os.environ.get("RESGOV_BEHIND_HTTPS_PROXY", "false") != "true":

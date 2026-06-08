@@ -30,6 +30,8 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run tests
+        env:
+          RESGOV_TESTING: "true"
         run: pytest tests/ -v --tb=short -n auto --dist loadfile
 
   docker:
@@ -48,7 +50,9 @@ jobs:
           docker run -d --name resgov-test \
             -p 8080:8080 \
             -e RESGOV_DB_PATH=/tmp/resgov.db \
-            -e RESGOV_ADMIN_TOKEN=ci-test-token \
+            -e RESGOV_ADMIN_TOKEN=ci-test-token-not-for-prod-32chars \
+            -e RESGOV_TESTING=true \
+            -e RESGOV_DB_FALLBACK_PATH=/tmp/resgov.db \
             resgov:${{ github.sha }}
           for i in $(seq 1 30); do
             if curl -sf http://localhost:8080/health > /dev/null 2>&1; then

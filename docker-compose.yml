@@ -18,30 +18,8 @@ services:
       - "traefik.http.routers.resgov.tls.certresolver=letsencrypt"
       - "traefik.http.services.resgov.loadbalancer.server.port=8080"
 
-  leadcollector:
-    build:
-      context: .
-      dockerfile: Dockerfile.lead
-    container_name: leadcollector
-    restart: unless-stopped
-    networks:
-      - resgov_default
-    environment:
-      - RESGOV_ADMIN_TOKEN=${RESGOV_ADMIN_TOKEN}
-    ports:
-      - "127.0.0.1:8090:8090"
-    volumes:
-      - leadcol-data:/data
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.leads.rule=Host(`api.resgov.silentops.cloud`) && PathPrefix(`/leads`)"
-      - "traefik.http.routers.leads.entrypoints=websecure"
-      - "traefik.http.routers.leads.tls.certresolver=letsencrypt"
-      - "traefik.http.services.leads.loadbalancer.server.port=8090"
-
 volumes:
   resgov-data:
-  leadcol-data:
 
 networks:
   resgov_default:
