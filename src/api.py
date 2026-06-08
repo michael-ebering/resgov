@@ -91,11 +91,18 @@ async def lifespan(app: FastAPI):
         open(test_db, "w").close()
         os.unlink(test_db)
     except (OSError, PermissionError):
-        fallback = "/tmp/resgov.db"
-        logger.warning(f"Default DB path not writable ({db_path}), falling back to {fallback}")
+        fallback = os.environ.get("RESGOV_DB_FALLBACK_PATH", "")
+        if not fallback:
+            logger.critical(
+                f"FATAL: DB path {db_path} is not writable and no RESGOV_DB_FALLBACK_PATH set. "
+                "Refusing to use /tmp — data loss risk. Fix volume mount or set RESGOV_DB_FALLBACK_PATH."
+            )
+            import sys
+            sys.exit(1)
+        logger.warning(f"Default DB path not writable ({db_path}), using fallback: {fallback}")
         db_path = fallback
         os.environ["RESGOV_DB_PATH"] = db_path
-        os.makedirs("/tmp", exist_ok=True)
+        os.makedirs(os.path.dirname(fallback) or ".", exist_ok=True)
 
     # Init connection pool (sets DB path for thread-local connections)
     _pool = ConnectionPool(db_path)
@@ -108,6 +115,42 @@ async def lifespan(app: FastAPI):
     init_api_keys_table()
     init_license_table()
     init_webhooks_table(db)
+
+    # --- Startup Security Checks ---
+    import sys
+    admin_token = os.environ.get("RESGOV_ADMIN_TOKEN", "")
+    dash_pass = os.environ.get("RESGOV_DASH_PASS", "")
+
+    if not admin_token:
+        logger.critical(
+            "FATAL: RESGOV_ADMIN_TOKEN is not set. "
+            "Set a secure token (min. 32 chars) in your .env file. "
+            "Generate one with: openssl rand -hex 32"
+        )
+        sys.exit(1)
+
+    if len(admin_token) < 32:
+        logger.critical(
+            "FATAL: RESGOV_ADMIN_TOKEN is too short (min. 32 characters required). "
+            f"Current length: {len(admin_token)}"
+        )
+        sys.exit(1)
+
+    if not dash_pass:
+        generated = secrets.token_urlsafe(24)
+        os.environ["RESGOV_DASH_PASS"] = generated
+        logger.warning(
+            f"RESGOV_DASH_PASS not set. Auto-generated dashboard password: {generated} "
+            "Write this down and set it in your .env!"
+        )
+
+    # Warn if not behind HTTPS proxy
+    if os.environ.get("RESGOV_BEHIND_HTTPS_PROXY", "false") != "true":
+        logger.warning(
+            "WARNING: RESGOV_BEHIND_HTTPS_PROXY is not set to 'true'. "
+            "Ensure TLS termination is handled by your reverse proxy (Traefik, Nginx). "
+            "Running without HTTPS exposes API keys in plaintext!"
+        )
 
     # Start scheduler
     start_scheduler()
@@ -519,13 +562,13 @@ async def health():
         "status": status,
         "service": "resgov",
         "version": "0.4.4",
-        "db": db_status,
+        "db": "ok" if db_status == "ok" else "error",
         "scheduler": scheduler_status,
     }
 
 @app.get("/metrics")
-async def metrics():
-    """Prometheus-compatible metrics."""
+async def metrics(owner_info=Depends(require_org)):
+    """Prometheus-compatible metrics. Requires valid API key."""
     lines = [
         "# HELP resgov_requests_total Total API requests",
         "# TYPE resgov_requests_total counter",

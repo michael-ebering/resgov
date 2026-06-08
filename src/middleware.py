@@ -194,11 +194,19 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 # --- CORS Setup ---
 
 def setup_cors(app):
-    """Configure CORS for the app."""
-    origins = [
-        "https://resgov.silentops.cloud",
-        "https://api.resgov.silentops.cloud",
-    ]
+    """Configure CORS for the app. Origins from RESGOV_CORS_ORIGINS env or default domains."""
+    env_origins = os.environ.get("RESGOV_CORS_ORIGINS", "")
+    if env_origins:
+        origins = [o.strip() for o in env_origins.split(",") if o.strip()]
+    else:
+        origins = [
+            "https://resgov.silentops.cloud",
+            "https://api.resgov.silentops.cloud",
+        ]
+        logger.warning(
+            "RESGOV_CORS_ORIGINS not set. CORS restricted to official domains only. "
+            "Set RESGOV_CORS_ORIGINS=https://your-domain.com for self-hosted setups."
+        )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,

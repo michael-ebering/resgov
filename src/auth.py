@@ -6,13 +6,12 @@ import os
 import secrets
 import hashlib
 import sqlite3
-import sqlite3
 import threading
 from typing import Optional
 from fastapi import Header, HTTPException, Request
 
 # Use the shared thread-local _local from middleware (single source of truth)
-from .middleware import _local
+from .middleware import _local, logger
 
 
 def _get_admin_token() -> str:
@@ -94,9 +93,17 @@ def verify_api_key(api_key: Optional[str] = None, provider: str = "all") -> dict
         provider: The provider being accessed (e.g., "openai", "anthropic").
                   Keys with provider="all" or matching provider are accepted.
     """
-    # Dev mode: no admin token, no keys in DB → allow all
-    if not _get_admin_token() and not _has_any_keys():
+    # Dev mode: only when explicitly enabled via RESGOV_DEV_MODE=true
+    dev_mode = os.environ.get("RESGOV_DEV_MODE", "false").lower() == "true"
+    if dev_mode and not _get_admin_token() and not _has_any_keys():
+        logger.warning("DEV MODE ACTIVE — all requests are unauthenticated! Set RESGOV_ADMIN_TOKEN to enable auth.")
         return {"owner": "dev", "org_id": "default", "scopes": "read,write"}
+
+    if not _get_admin_token() and not _has_any_keys():
+        raise HTTPException(
+            status_code=503,
+            detail="ResGov is not configured. Set RESGOV_ADMIN_TOKEN in your .env file."
+        )
 
     if not api_key:
         raise HTTPException(status_code=401, detail="Missing X-API-Key header")
