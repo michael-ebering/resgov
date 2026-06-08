@@ -1,54 +1,21 @@
-Business Source License 1.1
+MIT License
 
-Licensor: SilentOps (Michael Ebering)
+Copyright (c) 2025-2026 Michael Ebering (SilentOps)
 
-Licensed Work: ResGov — Resource Governance for AI Agents
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-Change Date: May 31, 2029
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-Change License: Apache License, Version 2.0
-
----
-
-Parameters
-
-Licensor:             SilentOps
-Licensed Work:        ResGov — Resource Governance for AI Agents
-                      (the "Licensed Work" includes all code, documentation,
-                      and configuration files in this repository)
-Change Date:          May 31, 2029
-Change License:       Apache License, Version 2.0
-Additional Use Grant: You may use the Licensed Work if your annual revenue
-                      is less than USD $1,000,000.
-
----
-
-Terms
-
-Subject to the conditions below, Licensor grants you a worldwide, non-exclusive,
-non-transferable, royalty-free license to use, copy, and distribute the Licensed
-Work:
-
-1. You may use the Licensed Work for any purpose, except for the "Competing
-   Use" defined below.
-2. You may make changes and create derivative works.
-3. You may distribute copies of the Licensed Work, provided you include this
-   license and copyright notice.
-
-"Competing Use" means making available to others any product or service that
-includes the Licensed Work or any modification of the Licensed Work as a
-commercial managed service, where such service is designed to allow third parties
-to interact with the functionality of the Licensed Work remotely through an API
-or similar interface.
-
-If you violate any of these terms, your license terminates automatically.
-
----
-
-On the Change Date, the Licensed Work will be licensed under the Change License
-(Apache License 2.0).
-
----
-
-THE LICENSED WORK IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

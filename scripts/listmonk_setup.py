@@ -207,7 +207,7 @@ cd resgov &amp;&amp; docker compose up</pre>
 <p style="color:#a1a1aa;font-size:14px;line-height:1.7;margin-top:8px">You asked for managed cloud access to RGF. We are now onboarding the first builders.</p>
 <div style="background:#12122a;border:1px solid #2a2a4a;border-radius:12px;padding:24px;margin:20px 0;text-align:center">
 <p style="font-size:16px;color:#fff;margin:0 0 8px;font-weight:600">What you get:</p>
-<p style="font-size:13px;color:#a1a1aa;line-height:2;margin:0">Zero-config hosting &middot; Built-in monitoring<br>Auto-scaling budgets &middot; Webhook integrations<br>Priority support &middot; BSL 1.1 licensed core</p>
+<p style="font-size:13px;color:#a1a1aa;line-height:2;margin:0">Zero-config hosting &middot; Built-in monitoring<br>Auto-scaling budgets &middot; Webhook integrations<br>Priority support &middot; MIT-licensed open-source core</p>
 <div style="margin-top:24px"><a href="mailto:michael@silentops.cloud?subject=RGF Cloud Early Access" style="display:inline-block;background:#F97316;color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-size:14px;font-weight:600">Request your invite</a></div>
 <p style="font-size:11px;color:#52525b;margin-top:12px">Limited to the first 50 builders. No credit card required.</p>
 </div>

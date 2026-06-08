@@ -1,10 +1,10 @@
 """
 ResGov — License Key Management
-One-time-purchase license validation with DB-backed storage.
+Subscription license validation with DB-backed storage.
 
 License tiers:
-  community  — max 5 agents, 1 org, lifetime, ~250€ one-time
-  pro        — max 50 agents, 5 orgs, 1 year, ~990€ one-time
+  community  — max 5 agents, 1 org, free
+  pro        — max 50 agents, 5 orgs, 1 year
   enterprise — unlimited, custom pricing
 """
 import os

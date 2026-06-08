@@ -5,7 +5,7 @@
 <img src="https://img.shields.io/badge/SQLite-WAL_Mode-003B57?logo=sqlite&logoColor=white" alt="SQLite">
 <img src="https://img.shields.io/badge/Docker-OK-2496ED?logo=docker&logoColor=white" alt="Docker">
 <img src="https://github.com/michael-ebering/resgov/actions/workflows/ci.yml/badge.svg" alt="CI Build Status">
-<img src="https://img.shields.io/badge/License-BSL_1.1-orange" alt="License">
+<img src="https://img.shields.io/badge/License-MIT-green" alt="License">
 <a href="https://github.com/michael-ebering/resgov/stargazers"><img src="https://img.shields.io/github/stars/michael-ebering/resgov?style=social" alt="Stars"></a>
 
 # The Resource Governance Framework (RGF) for Multi-Agent Environments
@@ -13,7 +13,7 @@
 **The missing circuit breaker between your autonomous agents and your credit card.**
 _STOP letting runaway agent loops burn through your API budgets overnight._
 
-> **Note:** This is an independent private source-available project by Michael Ebering (BSL 1.1). Not affiliated with or endorsed by any employer.
+> **Note:** This is an independent open-source project by Michael Ebering (MIT License). Not affiliated with or endorsed by any employer.
 
 ResGov is a lightweight, ultra-low-latency proxy and governance engine. It complements MCP and A2A by adding a strict economic layer: preventing cost explosions through real-time quota enforcement, per-agent budget tracking, and stream-safe cost governance.
 
@@ -224,10 +224,8 @@ flowchart TD
 *   [ ] Official Terraform Provider & Kubernetes Helm Charts.
 
 ## 📄 License
-This project is licensed under the Business Source License 1.1 (BSL-1.1).
-*   Free forever for personal use, testing, and internal non-commercial setups.
-*   Free forever for production scale in companies making < $1M ARR.
-*   Change Date: Automatically transitions into an open-source Apache 2.0 License on May 31, 2029.
+This project is licensed under the MIT License. Copyright (c) 2025-2026 Michael Ebering (SilentOps).
+See [LICENSE](LICENSE) for the full text.
 
 <div align="center">
 <sub>Built by SilentOps with strict focus on correctness, speed, and cost guardrails.</sub>

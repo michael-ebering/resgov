@@ -2,14 +2,14 @@
 
 [Python shields.io badges — same as EN README]
 
-# Das Resource Governance Framework (RGF) für Multi-Agenten-Umgebungen
+# Das Resource Governance Framework (RGF) f\u00fcr Multi-Agenten-Umgebungen
 
 **Die fehlende Sicherung zwischen deinen autonomen Agenten und deiner Kreditkarte.**
-_LASS runaway-Agenten-Schleifen nicht über Nacht dein API-Budget vernichten._
+_LASS runaway-Agenten-Schleifen nicht \u00fcber Nacht dein API-Budget vernichten._
 
-> **Hinweis:** Dies ist ein unabhängiges privates Open-Source-Projekt von Michael Ebering.
+> **Hinweis:** Dies ist ein unabh\u00e4ngiges Open-Source-Projekt von Michael Ebering. Alle Inhalte stehen unter der MIT-Lizenz \u2014 frei nutzbar mit Namensnennung.
 
-ResGov ist eine leichtgewichtige Ultra-Latenz-Proxy- und Governance-Engine. Es ergänzt MCP und A2A um eine strenge ökonomische Schicht.
+ResGov ist eine leichtgewichtige Ultra-Latenz-Proxy- und Governance-Engine. Erg\u00e4nzt MCP und A2A um eine strenge \u00f6konomische Schicht.
 
 📡 [Live-Demo](https://resgov.silentops.cloud) · [Quick Start](#-quick-start) · [Governance als Code](#-governance-als-code-die-rgf-datei) · [Architektur](#-architektur--produktionsdesign) · [API-Referenz](#-governance-api-reference) · [Dokumentation](docs/)
 
@@ -182,7 +182,7 @@ flowchart TD
 - [ ] Enterprise SSO / SAML & RBAC
 
 ## 📄 Lizenz
-Business Source License 1.1 (BSL-1.1). Kostenlos für persönliche Nutzung und Unternehmen mit < $1M ARR. Wechsel zu Apache 2.0 am 31. Mai 2029.
+Dieses Projekt steht unter der MIT-Lizenz. Copyright (c) 2025-2026 Michael Ebering (SilentOps). Vollst\u00e4ndiger Lizenztext: [LICENSE](LICENSE)
 
 <div align="center">
 <sub>Gebaut von SilentOps mit Fokus auf Korrektheit, Geschwindigkeit und Kostensicherungen.</sub>
