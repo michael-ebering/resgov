@@ -11,6 +11,8 @@ services:
       - "8080"
     volumes:
       - resgov-data:/data
+    env_file:
+      - .env
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.resgov.rule=Host(`api.resgov.silentops.cloud`)"
